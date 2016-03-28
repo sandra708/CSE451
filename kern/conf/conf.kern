@@ -424,7 +424,15 @@ defoption netfs
 #
 # Note that "emufs" is completely contained in the "emu" device.
 #
+#
+########################################
+#                                      #
+#  Synchonization problems assignment  #
+#                                      #
+########################################
 
+defoption synchprobs
+#optfile   synchprobs  test/netqueuetest.c # should we add this later?
 
 ########################################
 #                                      #
