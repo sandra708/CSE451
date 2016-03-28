@@ -44,6 +44,10 @@
 int arraytest(int, char **);
 int arraytest2(int, char **);
 int bitmaptest(int, char **);
+int hashtabletest(int, char **);
+int heaptest(int, char **);
+int listtest(int, char **);
+int queuetest(int, char **);
 int threadlisttest(int, char **);
 
 /* thread tests */

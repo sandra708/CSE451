@@ -434,8 +434,12 @@ defoption netfs
 
 file		test/arraytest.c
 file		test/bitmaptest.c
+file		test/hashtabletest.c
+file		test/heaptest.c
 file		test/threadlisttest.c
 file		test/threadtest.c
+file		test/listtest.c
+file		test/queuetest.c
 file		test/tt3.c
 file		test/synchtest.c
 file		test/semunit.c
