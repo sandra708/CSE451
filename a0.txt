@@ -1,0 +1,96 @@
+1. Look into exception-mips1.S. The first line of OS161 code that is ran under the
+mips_utlb_handler label, and is j common-exception
+
+control gets transferred to the code that saves the trap frame, under the common-exception
+label
+
+
+2. The trap is invoked in exception-mips1.S, on the line 
+
+  jal mips_trap
+
+That line calls the trap function in trap.c
+
+3. Userland and the kernel will sometimes need to call the same libc functions. Common
+factors out the redundancy, so that both the kernel and userland
+has access to those functions.
+
+4. It configures where the VM is installed, saved as OSTREE
+It also configures the hardware platform that the OS is going to run on
+
+When switching between debug mode, and production mode, we would want to change
+the DEBUG flag, which would require re-running configure.
+
+
+5. Dealing with hardware specifics, such as registers, could make a function machine dependent.
+The function could have drastically different logic if different regesters are or are not
+available, and if a different instruction set is available.
+
+Best practice would be to abstract as much functionality out of machine dependent functions
+as possible, in order to maximize code reuse.
+
+6. in exception-mips1.S, under label 2:, stack space is allocated for building the
+trapframe, and then content is saved in it.
+
+7.
+
+a) Edit kern/conf/conf.kern
+b) Run kern/conf/config
+c) Run bmake depend
+d) Run bmake and bmake install.
+
+Scenario 1. You just finished assignment 1 and are ready to start assignment 2.
+b) Run kern/conf/config
+c) Run bmake depend
+d) Run bmake and bmake install.
+
+Scenario 2. You added #include <cpu.h> at the top of kern/thread/synch.c.
+c) Run bmake depend
+d) Run bmake and bmake install.
+
+Scenario 3. You added a new file foo.c with a corresponding foo.h.
+// Assumtion Adding file in userland
+d) Run bmake and bmake install.
+
+// Assumption, adding file in kernal
+a) Edit kern/conf/conf.kern
+b) Run kern/conf/config
+c) Run bmake depend
+d) Run bmake and bmake install.
+
+Scenario 4. You added code in kern/thread/synch.c to implement locks and condition variables.
+b) Run kern/conf/config
+d) Run bmake and bmake install.
+
+Scenario 5. You edited sys161.conf to change the size of physical memory for System/161.
+b) Run kern/conf/config
+d) Run bmake and bmake install.
+
+8.
+
+Add the name of the command, and the function for the command to the command table in 
+menu.c
+
+Also need to add the function that prints out "Hello, World" to the user in menu.c
+
+9. My guess is that when running OS161, it is running on a VM, and does not have access
+to the host machine's bin functions.
+
+Additionally, if we were to put our OS on a physically independent machine, there would
+be no bin functions to call, and the OS would not work.
+
+10. Main returns to crt0, with the return value from the procedure,
+crt0 then calls exit with that value as the parameter.
+
+11. When adding a new system call, lets say its called 'foo', you would first make
+a new folder in userland/bin/ called foo, containing the foo.c code, as well as a 
+Makefile for the c file.
+
+Also, the system call would need to be added to the menu so that the user is able to
+call it.
+
+in kern/arch/mips/syscall/syscall.c, add a function for the system calls corresponding 
+call number to implement the logic of the syscall, which needs to be executed with kernel
+privledges. 
+
+12.
