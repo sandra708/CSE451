@@ -1,0 +1,6 @@
+defs.mk
+build/
+kern/compile/
+tags
+TAGS
+
