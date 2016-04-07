@@ -94,6 +94,8 @@ call number to implement the logic of the syscall, which needs to be executed wi
 privledges. 
 
 12.
+start.S initializes the kernel stack and the registers so that kmain is ready to run.
+
 kmain first calls boot, which prints out some information about the system, and then calls
 various bootstrap functions.
 
