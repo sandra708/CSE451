@@ -1207,3 +1207,27 @@ interprocessor_interrupt(void)
 	curcpu->c_ipi_pending = 0;
 	spinlock_release(&curcpu->c_ipi_lock);
 }
+
+int
+thread_fork_joinable(const char *name,
+	    struct proc *proc,
+	    void (*entrypoint)(void *data1, unsigned long data2),
+	    void *data1, unsigned long data2)
+{
+        (void) name;
+        (void) proc;
+        (void) data1;
+        (void) data2;
+        (void) entrypoint;
+        // implement this
+        return 0;
+}
+
+
+int 
+thread_join(struct thread * child)
+{
+        (void) child;
+        // implement this
+        return 0;
+}

@@ -145,6 +145,19 @@ int thread_fork(const char *name, struct proc *proc,
                 void *data1, unsigned long data2);
 
 /*
+ * Make a new joinable thread
+ */
+int thread_fork_joinable(const char *name, struct proc *proc,
+                void (*func)(void *, unsigned long),
+                void *data1, unsigned long data2);
+
+
+/*
+ * Wait for a child thread to complete
+ */
+int thread_join(struct thread * child);
+
+/*
  * Cause the current thread to exit.
  * Interrupts need not be disabled.
  */
