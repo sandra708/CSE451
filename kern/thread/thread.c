@@ -1212,13 +1212,14 @@ int
 thread_fork_joinable(const char *name,
 	    struct proc *proc,
 	    void (*entrypoint)(void *data1, unsigned long data2),
-	    void *data1, unsigned long data2)
+	    void *data1, unsigned long data2, struct thread ** newthread)
 {
         (void) name;
         (void) proc;
         (void) data1;
         (void) data2;
         (void) entrypoint;
+        (void) newthread;
         // implement this
         return 0;
 }
