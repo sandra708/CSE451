@@ -50,7 +50,7 @@ predepend:
 
 tags: tagscompile
 tagscompile:
-	ctags -wtd $(SRCS) *.h
+	ctags $(SRCS) *.h
 
 #
 # Compile rules.
