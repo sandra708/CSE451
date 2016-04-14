@@ -59,6 +59,16 @@ int locktest(int, char **);
 int cvtest(int, char **);
 int cvtest2(int, char **);
 
+/* deterministic synchronization tests */
+int locktests_det_reacquire(int nargs, char **args);
+int locktests_det_do_i_hold(int nargs, char **args);
+int locktests_det_mutex(int nargs, char **args);
+int locktests_det_competing(int nargs, char **args);
+int cvtests_det_noopwakeup(int nargs, char **args);
+int cvtests_det_signal_one(int nargs, char **args);
+int cvtests_det_broadcast(int nargs, char **args);
+
+
 /* semaphore unit tests */
 int semu1(int, char **);
 int semu2(int, char **);
