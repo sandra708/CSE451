@@ -78,7 +78,7 @@ setup(void)
 }
 
 static
-void
+int
 sleepalot_thread(void *junk, unsigned long num)
 {
 	int i, j;
@@ -101,10 +101,11 @@ sleepalot_thread(void *junk, unsigned long num)
 		kprintf("[%lu]", num);
 	}
 	V(donesem);
+        return 0;
 }
 
 static
-void
+int
 waker_thread(void *junk1, unsigned long junk2)
 {
 	int i, done;
@@ -136,6 +137,7 @@ waker_thread(void *junk1, unsigned long junk2)
 		}
 	}
 	V(donesem);
+        return 0;
 }
 
 static
@@ -159,7 +161,7 @@ make_sleepalots(int howmany)
 }
 
 static
-void
+int
 compute_thread(void *junk1, unsigned long num)
 {
 	struct matrix {
@@ -213,6 +215,7 @@ compute_thread(void *junk1, unsigned long num)
 	kfree(m3);
 
 	V(donesem);
+        return 0;
 }
 
 static

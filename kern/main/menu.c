@@ -68,7 +68,7 @@
  * it gets by passing it to vfs_open().
  */
 static
-void
+int
 cmd_progthread(void *ptr, unsigned long nargs)
 {
 	char **args = ptr;
@@ -90,10 +90,11 @@ cmd_progthread(void *ptr, unsigned long nargs)
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
-		return;
+		return -1;
 	}
 
 	/* NOTREACHED: runprogram only returns on error. */
+        return 0;
 }
 
 /*

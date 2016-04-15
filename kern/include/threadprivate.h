@@ -71,7 +71,7 @@ void switchframe_switch(struct switchframe **prev, struct switchframe **next);
 
 /* Thread initialization */
 void switchframe_init(struct thread *,
-		      void (*entrypoint)(void *data1, unsigned long data2),
+		      int (*entrypoint)(void *data1, unsigned long data2),
 		      void *data1, unsigned long data2);
 
 

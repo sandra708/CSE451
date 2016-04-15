@@ -53,7 +53,7 @@ extern void mips_threadstart(/* arguments are in unusual registers */);
  */
 void
 switchframe_init(struct thread *thread,
-		 void (*entrypoint)(void *data1, unsigned long data2),
+		 int (*entrypoint)(void *data1, unsigned long data2),
 		 void *data1, unsigned long data2)
 {
 	vaddr_t stacktop;

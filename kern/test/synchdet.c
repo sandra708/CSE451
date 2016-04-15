@@ -69,7 +69,7 @@ static volatile int test_success;
 /**********************************************************/
 /* Test 1: Check lock can be reacquired after release */
 
-static void reacquire_thread(void *data1, unsigned long data2)
+static int reacquire_thread(void *data1, unsigned long data2)
 {
     (void) data1, (void) data2;
 
@@ -87,6 +87,7 @@ static void reacquire_thread(void *data1, unsigned long data2)
 
     lock_destroy(lock);
     success();
+    return 0;
 }
 
 int locktests_det_reacquire(int nargs, char **args)
@@ -114,7 +115,7 @@ struct do_i_hold_param {
     volatile int v;
 };
 
-static void do_i_hold_primary(void *data1, unsigned long data2)
+static int do_i_hold_primary(void *data1, unsigned long data2)
 {
     struct do_i_hold_param *p = data1;
     (void) data2;
@@ -148,9 +149,10 @@ static void do_i_hold_primary(void *data1, unsigned long data2)
         fail("lock_do_i_hold true after lock released by other thread");
 
     success();
+    return 0;
 }
 
-static void do_i_hold_secondary(void *data1, unsigned long data2)
+static int do_i_hold_secondary(void *data1, unsigned long data2)
 {
     struct do_i_hold_param *p = data1;
     (void) data2;
@@ -174,6 +176,7 @@ static void do_i_hold_secondary(void *data1, unsigned long data2)
 
     p->v = 4;
     success();
+    return 0;
 }
 
 int locktests_det_do_i_hold(int nargs, char **args)
@@ -210,7 +213,7 @@ struct mutex_param {
     volatile unsigned int v;
 };
 
-static void mutex_thread(void *data1, unsigned long data2)
+static int mutex_thread(void *data1, unsigned long data2)
 {
     struct mutex_param *p = data1;
     int i;
@@ -227,6 +230,7 @@ static void mutex_thread(void *data1, unsigned long data2)
     lock_release(p->l);
 
     success();
+    return 0;
 }
 
 int locktests_det_mutex(int nargs, char **args)
@@ -303,7 +307,7 @@ exit:
 /* Test 1: Check nothing bad happens with signal/broadcast while no-one is
    waiting */
 
-static void cvnoop_thread(void *data1, unsigned long data2)
+static int cvnoop_thread(void *data1, unsigned long data2)
 {
     struct cv *cv;
     struct lock *lock;
@@ -345,6 +349,7 @@ static void cvnoop_thread(void *data1, unsigned long data2)
 
     cv_destroy(cv);
     success();
+    return 0;
 }
 
 int cvtests_det_noopwakeup(int nargs, char **args)
@@ -369,7 +374,7 @@ struct cv_param {
     volatile int v;
 };
 
-static void signal_thread(void *data1, unsigned long N)
+static int signal_thread(void *data1, unsigned long N)
 {
     struct cv_param *p = data1;
     unsigned i, j;
@@ -397,9 +402,10 @@ static void signal_thread(void *data1, unsigned long N)
     }
 
     success();
+    return 0;
 }
 
-static void waiting_thread(void *data1, unsigned long data2)
+static int waiting_thread(void *data1, unsigned long data2)
 {
     struct cv_param *p = data1;
 
@@ -415,6 +421,7 @@ static void waiting_thread(void *data1, unsigned long data2)
     p->v--;
     lock_release(p->l);
     success();
+    return 0;
 }
 
 int cvtests_det_signal_one(int nargs, char **args)
@@ -461,7 +468,7 @@ exit:
 /**********************************************************/
 /* Test 3: Check broadcast wakes up all */
 
-static void broadcast_thread(void *data1, unsigned long N)
+static int broadcast_thread(void *data1, unsigned long N)
 {
     struct cv_param *p = data1;
 
@@ -480,6 +487,7 @@ static void broadcast_thread(void *data1, unsigned long N)
     wait_for_value(&p->v, (int) 0);
 
     success();
+    return 0;
 }
 
 int cvtests_det_broadcast(int nargs, char **args)

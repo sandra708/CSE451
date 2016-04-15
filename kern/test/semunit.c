@@ -88,7 +88,7 @@ makesem(unsigned count)
  * A thread that just waits on a semaphore.
  */
 static
-void
+int
 waiter(void *vsem, unsigned long junk)
 {
 	struct semaphore *sem = vsem;
@@ -100,6 +100,7 @@ waiter(void *vsem, unsigned long junk)
 	KASSERT(waiters_running > 0);
 	waiters_running--;
 	spinlock_release(&waiters_lock);
+        return 0;
 }
 
 /*
@@ -622,7 +623,7 @@ semu16(int nargs, char **args)
 static struct thread *semu17_thread;
 
 static
-void
+int
 semu17_sub(void *semv, unsigned long junk)
 {
 	struct semaphore *sem = semv;
@@ -635,6 +636,7 @@ semu17_sub(void *semv, unsigned long junk)
 	KASSERT(sem->sem_count == 0);
 
 	P(sem);
+        return 0;
 }
 
 int
@@ -715,7 +717,7 @@ semu18(int nargs, char **args)
  */
 
 static
-void
+int
 semu19_sub(void *semv,  unsigned long junk)
 {
 	struct semaphore *sem = semv;
@@ -730,6 +732,7 @@ semu19_sub(void *semv,  unsigned long junk)
 	 * trouble.
 	 */
 	V(sem);
+        return 0;
 }
 
 int

@@ -141,7 +141,7 @@ void thread_shutdown(void);
  * disappear at any time without notice.
  */
 int thread_fork(const char *name, struct proc *proc,
-                void (*func)(void *, unsigned long),
+                int (*func)(void *, unsigned long),
                 void *data1, unsigned long data2);
 
 /*

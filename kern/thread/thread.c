@@ -491,7 +491,7 @@ thread_make_runnable(struct thread *target, bool already_have_lock)
 int
 thread_fork(const char *name,
 	    struct proc *proc,
-	    void (*entrypoint)(void *data1, unsigned long data2),
+	    int (*entrypoint)(void *data1, unsigned long data2),
 	    void *data1, unsigned long data2)
 {
 	struct thread *newthread;
