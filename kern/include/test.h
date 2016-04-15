@@ -67,7 +67,9 @@ int locktests_det_competing(int nargs, char **args);
 int cvtests_det_noopwakeup(int nargs, char **args);
 int cvtests_det_signal_one(int nargs, char **args);
 int cvtests_det_broadcast(int nargs, char **args);
-
+int jointest_child_earlyfinish(int nargs, char **args);
+int jointest_child_latefinish(int nargs, char **args);
+int jointest_onlyparent_canjoin(int nargs, char **args);
 
 /* semaphore unit tests */
 int semu1(int, char **);

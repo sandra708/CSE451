@@ -481,7 +481,7 @@ static const char *testmenu[] = {
 	"[sy2] Lock test             (1)     ",
 	"[sy3] CV test               (1)     ",
 	"[sy4] CV test #2            (1)     ",
-    "[dsy0-6] Deterministic sync. tests  ",
+        "[dsy0-9] Deterministic sync. tests  ",
 	"[semu1-22] Semaphore unit tests     ",
 	"[fs1] Filesystem test               ",
 	"[fs2] FS read stress                ",
@@ -597,6 +597,9 @@ static struct {
     { "dsy4", cvtests_det_noopwakeup },
     { "dsy5", cvtests_det_signal_one },
     { "dsy6", cvtests_det_broadcast },
+    { "dsy7", jointest_child_earlyfinish },
+    { "dsy8", jointest_child_latefinish },
+    { "dsy9", jointest_onlyparent_canjoin },
 
 	/* semaphore unit tests */
 	{ "semu1",	semu1 },

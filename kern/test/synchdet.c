@@ -532,6 +532,73 @@ exit:
 }
 
 /******************************************************************************/
+/* Tests: Thread Join
+ *      Check joinable thread can be joined
+ *      test1: when child finishes before parent joins
+ *      test2: when child finishes after parent joins
+ */
+
+/**********************************************************/
+/* Test 1: child finishes before parent join
+ */ 
+static int quick_thread(void *data1, unsigned long data2)
+{
+    (void) data1;
+    (void) data2;
+    return 1;
+}
+
+int jointest_child_earlyfinish(int nargs, char **args)
+{
+    (void) nargs, (void) args;
+    struct thread * newthread = NULL;
+    KASSERT(thread_fork_joinable("earlyfinish", NULL, quick_thread, NULL, 0, &newthread) == 0);
+    KASSERT(newthread != NULL);
+    clocksleep(1);
+    KASSERT(thread_join(newthread) == 1);
+    kprintf("Test thread_join when child finishes before parent joins succeeded\n");
+    return 0;
+}
+
+static int slow_thread(void *data1, unsigned long data2)
+{
+    (void) data1;
+    (void) data2;
+    clocksleep(1);
+    return 1;
+}
+
+int jointest_child_latefinish(int nargs, char **args)
+{
+    (void) nargs, (void) args;
+    struct thread * newthread = NULL;
+    KASSERT(thread_fork_joinable("latefinish", NULL, slow_thread, NULL, 0, &newthread) == 0);
+    KASSERT(newthread != NULL);
+    KASSERT(thread_join(newthread) == 1);
+    kprintf("Test thread_join when child finishes after parent joins succeeded\n");
+    return 0;
+}
+
+static int tryjoin_thread(void *data1, unsigned long data2)
+{
+    (void) data2;
+    struct thread * target = (struct thread *) data1;
+    kprintf("This test should crash\n");
+    thread_join(target);
+    return 0;
+}
+
+int jointest_onlyparent_canjoin(int nargs, char **args)
+{
+    (void) nargs, (void) args;
+    struct thread * newthread = NULL;
+    KASSERT(thread_fork_joinable("latefinish", NULL, slow_thread, NULL, 0, &newthread) == 0);
+    KASSERT(thread_fork("tryjoin", NULL, tryjoin_thread, (void *) newthread, 0) == 0);
+    return 0;
+}
+
+
+/******************************************************************************/
 /* helpers */
 
 static inline int startup(int *spl, const char *test, unsigned num_threads)
