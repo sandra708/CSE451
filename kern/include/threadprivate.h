@@ -52,7 +52,7 @@ struct switchframe;	/* from <machine/switchframe.h> */
  */
 
 /* Entry point for new threads. */
-void thread_startup(void (*entrypoint)(void *data1, unsigned long data2),
+void thread_startup(int (*entrypoint)(void *data1, unsigned long data2),
 		    void *data1, unsigned long data2);
 
 /* Initialize or clean up the machine-dependent portion of struct thread */

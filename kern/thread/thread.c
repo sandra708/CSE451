@@ -733,7 +733,7 @@ thread_switch(threadstate_t newstate, struct wchan *wc, struct spinlock *lk)
  * tail of thread_switch.
  */
 void
-thread_startup(void (*entrypoint)(void *data1, unsigned long data2),
+thread_startup(int (*entrypoint)(void *data1, unsigned long data2),
 	       void *data1, unsigned long data2)
 {
 	struct thread *cur;
