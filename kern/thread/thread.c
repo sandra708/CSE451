@@ -1211,7 +1211,7 @@ interprocessor_interrupt(void)
 int
 thread_fork_joinable(const char *name,
 	    struct proc *proc,
-	    void (*entrypoint)(void *data1, unsigned long data2),
+	    int (*entrypoint)(void *data1, unsigned long data2),
 	    void *data1, unsigned long data2, struct thread ** newthread)
 {
         (void) name;
