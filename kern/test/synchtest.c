@@ -82,7 +82,7 @@ inititems(void)
 }
 
 static
-void
+int
 semtestthread(void *junk, unsigned long num)
 {
 	int i;
@@ -98,6 +98,7 @@ semtestthread(void *junk, unsigned long num)
 	}
 	kprintf("\n");
 	V(donesem);
+        return 0;
 }
 
 int
@@ -150,7 +151,7 @@ fail(unsigned long num, const char *msg)
 }
 
 static
-void
+int
 locktestthread(void *junk, unsigned long num)
 {
 	int i;
@@ -189,6 +190,7 @@ locktestthread(void *junk, unsigned long num)
 		lock_release(testlock);
 	}
 	V(donesem);
+        return 0;
 }
 
 
@@ -221,7 +223,7 @@ locktest(int nargs, char **args)
 }
 
 static
-void
+int
 cvtestthread(void *junk, unsigned long num)
 {
 	int i;
@@ -264,6 +266,7 @@ cvtestthread(void *junk, unsigned long num)
 		lock_release(testlock);
 	}
 	V(donesem);
+        return 0;
 }
 
 int
@@ -315,7 +318,7 @@ static struct semaphore *gatesem;
 static struct semaphore *exitsem;
 
 static
-void
+int
 sleepthread(void *junk1, unsigned long junk2)
 {
 	unsigned i, j;
@@ -333,10 +336,11 @@ sleepthread(void *junk1, unsigned long junk2)
 		kprintf("sleepthread: %u\n", j);
 	}
 	V(exitsem);
+        return 0;
 }
 
 static
-void
+int
 wakethread(void *junk1, unsigned long junk2)
 {
 	unsigned i, j;
@@ -354,6 +358,7 @@ wakethread(void *junk1, unsigned long junk2)
 		kprintf("wakethread: %u\n", j);
 	}
 	V(exitsem);
+        return 0;
 }
 
 int

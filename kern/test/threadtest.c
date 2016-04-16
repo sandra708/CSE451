@@ -53,7 +53,7 @@ init_sem(void)
 }
 
 static
-void
+int
 loudthread(void *junk, unsigned long num)
 {
 	int ch = '0' + num;
@@ -65,6 +65,7 @@ loudthread(void *junk, unsigned long num)
 		putch(ch);
 	}
 	V(tsem);
+        return 0;
 }
 
 /*
@@ -78,7 +79,7 @@ loudthread(void *junk, unsigned long num)
  * if either timeslicing or the scheduler is not working right.
  */
 static
-void
+int
 quietthread(void *junk, unsigned long num)
 {
 	int ch = '0' + num;
@@ -91,6 +92,7 @@ quietthread(void *junk, unsigned long num)
 	putch(ch);
 
 	V(tsem);
+        return 0;
 }
 
 static

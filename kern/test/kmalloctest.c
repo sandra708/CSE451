@@ -59,7 +59,7 @@
 #define NTHREADS  8
 
 static
-void
+int
 kmallocthread(void *sm, unsigned long num)
 {
 	struct semaphore *sem = sm;
@@ -95,6 +95,7 @@ done:
 	if (sem) {
 		V(sem);
 	}
+        return 0;
 }
 
 int
@@ -296,7 +297,7 @@ kmalloctest3(int nargs, char **args)
 // km4
 
 static
-void
+int
 kmalloctest4thread(void *sm, unsigned long num)
 {
 #define NUM_KM4_SIZES 5
@@ -335,6 +336,7 @@ kmalloctest4thread(void *sm, unsigned long num)
 	}
 
 	V(sem);
+        return 0;
 }
 
 int
