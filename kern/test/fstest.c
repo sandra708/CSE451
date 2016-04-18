@@ -300,14 +300,16 @@ dofstest(const char *filesys)
 ////////////////////////////////////////////////////////////
 
 static
-void
+int
 readstress_thread(void *fs, unsigned long num)
 {
 	const char *filesys = fs;
 	if (fstest_read(filesys, "")) {
 		kprintf("*** Thread %lu: failed\n", num);
+                return -1;
 	}
 	V(threadsem);
+        return 0;
 }
 
 static
@@ -349,7 +351,7 @@ doreadstress(const char *filesys)
 ////////////////////////////////////////////////////////////
 
 static
-void
+int
 writestress_thread(void *fs, unsigned long num)
 {
 	const char *filesys = fs;
@@ -359,13 +361,13 @@ writestress_thread(void *fs, unsigned long num)
 	if (fstest_write(filesys, numstr, 1, 0)) {
 		kprintf("*** Thread %lu: failed\n", num);
 		V(threadsem);
-		return;
+		return -1;
 	}
 
 	if (fstest_read(filesys, numstr)) {
 		kprintf("*** Thread %lu: failed\n", num);
 		V(threadsem);
-		return;
+		return -1;
 	}
 
 	if (fstest_remove(filesys, numstr)) {
@@ -375,6 +377,7 @@ writestress_thread(void *fs, unsigned long num)
 	kprintf("*** Thread %lu: done\n", num);
 
 	V(threadsem);
+        return 0;
 }
 
 static
@@ -405,7 +408,7 @@ dowritestress(const char *filesys)
 ////////////////////////////////////////////////////////////
 
 static
-void
+int
 writestress2_thread(void *fs, unsigned long num)
 {
 	const char *filesys = fs;
@@ -413,10 +416,11 @@ writestress2_thread(void *fs, unsigned long num)
 	if (fstest_write(filesys, "", NTHREADS, num)) {
 		kprintf("*** Thread %lu: failed\n", num);
 		V(threadsem);
-		return;
+		return -1;
 	}
 
 	V(threadsem);
+        return 0;
 }
 
 static
@@ -470,7 +474,7 @@ dowritestress2(const char *filesys)
 ////////////////////////////////////////////////////////////
 
 static
-void
+int
 longstress_thread(void *fs, unsigned long num)
 {
 	const char *filesys = fs;
@@ -484,24 +488,25 @@ longstress_thread(void *fs, unsigned long num)
 		if (fstest_write(filesys, numstr, 1, 0)) {
 			kprintf("*** Thread %lu: file %d: failed\n", num, i);
 			V(threadsem);
-			return;
+			return -1;
 		}
 
 		if (fstest_read(filesys, numstr)) {
 			kprintf("*** Thread %lu: file %d: failed\n", num, i);
 			V(threadsem);
-			return;
+			return -1;
 		}
 
 		if (fstest_remove(filesys, numstr)) {
 			kprintf("*** Thread %lu: file %d: failed\n", num, i);
 			V(threadsem);
-			return;
+			return -1;
 		}
 
 	}
 
 	V(threadsem);
+        return 0;
 }
 
 static
@@ -533,7 +538,7 @@ dolongstress(const char *filesys)
 ////////////////////////////////////////////////////////////
 
 static
-void
+int
 createstress_thread(void *fs, unsigned long num)
 {
 	const char *filesys = fs;
@@ -644,6 +649,7 @@ createstress_thread(void *fs, unsigned long num)
 	kprintf("Thread %lu: %u files removed\n", num, numremoved);
 
 	V(threadsem);
+        return 0;
 }
 
 static

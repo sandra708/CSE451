@@ -141,8 +141,22 @@ void thread_shutdown(void);
  * disappear at any time without notice.
  */
 int thread_fork(const char *name, struct proc *proc,
-                void (*func)(void *, unsigned long),
+                int (*func)(void *, unsigned long),
                 void *data1, unsigned long data2);
+
+/*
+ * Make a new joinable thread. newly created thread should be given to
+ * newthread pointer.
+ */
+int thread_fork_joinable(const char *name, struct proc *proc,
+                int (*func)(void *, unsigned long),
+                void *data1, unsigned long data2, struct thread ** newthread);
+
+
+/*
+ * Wait for a child thread to complete
+ */
+int thread_join(struct thread * child);
 
 /*
  * Cause the current thread to exit.

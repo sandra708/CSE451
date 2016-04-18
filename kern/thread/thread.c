@@ -491,7 +491,7 @@ thread_make_runnable(struct thread *target, bool already_have_lock)
 int
 thread_fork(const char *name,
 	    struct proc *proc,
-	    void (*entrypoint)(void *data1, unsigned long data2),
+	    int (*entrypoint)(void *data1, unsigned long data2),
 	    void *data1, unsigned long data2)
 {
 	struct thread *newthread;
@@ -733,7 +733,7 @@ thread_switch(threadstate_t newstate, struct wchan *wc, struct spinlock *lk)
  * tail of thread_switch.
  */
 void
-thread_startup(void (*entrypoint)(void *data1, unsigned long data2),
+thread_startup(int (*entrypoint)(void *data1, unsigned long data2),
 	       void *data1, unsigned long data2)
 {
 	struct thread *cur;
@@ -1206,4 +1206,29 @@ interprocessor_interrupt(void)
 
 	curcpu->c_ipi_pending = 0;
 	spinlock_release(&curcpu->c_ipi_lock);
+}
+
+int
+thread_fork_joinable(const char *name,
+	    struct proc *proc,
+	    int (*entrypoint)(void *data1, unsigned long data2),
+	    void *data1, unsigned long data2, struct thread ** newthread)
+{
+        (void) name;
+        (void) proc;
+        (void) data1;
+        (void) data2;
+        (void) entrypoint;
+        (void) newthread;
+        // implement this
+        return 0;
+}
+
+
+int 
+thread_join(struct thread * child)
+{
+        (void) child;
+        // implement this
+        return 0;
 }

@@ -68,7 +68,7 @@
  * it gets by passing it to vfs_open().
  */
 static
-void
+int
 cmd_progthread(void *ptr, unsigned long nargs)
 {
 	char **args = ptr;
@@ -90,10 +90,11 @@ cmd_progthread(void *ptr, unsigned long nargs)
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
-		return;
+		return -1;
 	}
 
 	/* NOTREACHED: runprogram only returns on error. */
+        return 0;
 }
 
 /*
@@ -480,6 +481,7 @@ static const char *testmenu[] = {
 	"[sy2] Lock test             (1)     ",
 	"[sy3] CV test               (1)     ",
 	"[sy4] CV test #2            (1)     ",
+        "[dsy0-9] Deterministic sync. tests  ",
 	"[semu1-22] Semaphore unit tests     ",
 	"[fs1] Filesystem test               ",
 	"[fs2] FS read stress                ",
@@ -586,6 +588,18 @@ static struct {
 	{ "sy2",	locktest },
 	{ "sy3",	cvtest },
 	{ "sy4",	cvtest2 },
+
+    /* deterministic tests for synchronization */
+    { "dsy0", locktests_det_reacquire },
+    { "dsy1", locktests_det_do_i_hold },
+    { "dsy2", locktests_det_mutex },
+    { "dsy3", locktests_det_competing },
+    { "dsy4", cvtests_det_noopwakeup },
+    { "dsy5", cvtests_det_signal_one },
+    { "dsy6", cvtests_det_broadcast },
+    { "dsy7", jointest_child_earlyfinish },
+    { "dsy8", jointest_child_latefinish },
+    { "dsy9", jointest_onlyparent_canjoin },
 
 	/* semaphore unit tests */
 	{ "semu1",	semu1 },
