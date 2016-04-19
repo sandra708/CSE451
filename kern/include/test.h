@@ -111,6 +111,11 @@ int kmalloctest3(int, char **);
 int kmalloctest4(int, char **);
 int nettest(int, char **);
 
+/* Lock unit tests */
+int testLockHolderCorrect(int, char **);
+int testLockCreateDoesNotAcceptNullName(int, char **);
+
+
 /* Routine for running a user-level program. */
 int runprogram(char *progname);
 
