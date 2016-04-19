@@ -16,7 +16,6 @@
  	- Tests that the name is equivlent to the passed string
  	- Tests that the pointer to the name is different form passed name
  	- Tests the the lock's wait channel is non-null
- 	- Tests that the lock's spinlock is non-null
  	- Tests that the lock is unlocked initially
  	- Tests that the lock has no owner
 */
@@ -28,14 +27,14 @@ int testLockCreateCorrect(int nargs, char **args) {
 
 	lk = lock_create(name);
 
-	if(lock == NULL) {
+	if(lk == NULL) {
 		panic("testLockCreateCorrect: createing new lock failed\n");
 	}
 	KASSERT(!strcmp(lk->lk_name, name));
 	KASSERT(lk->lk_name != name);
 	KASSERT(lk->lock_wchan != NULL);
 	KASSERT(lk->is_locked == false);
-	KASSERT(lk->lock_spinlock != NULL);
+	KASSERT(lk->lock_holder == NULL);
 
 	lock_destroy(lk);
 	return 0;

@@ -112,7 +112,7 @@ int kmalloctest4(int, char **);
 int nettest(int, char **);
 
 /* Lock unit tests */
-int testLockHolderCorrect(int, char **);
+int testLockCreateCorrect(int, char **);
 int testLockCreateDoesNotAcceptNullName(int, char **);
 
 

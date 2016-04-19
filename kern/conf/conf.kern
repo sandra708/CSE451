@@ -454,4 +454,5 @@ file		test/semunit.c
 file		test/kmalloctest.c
 file		test/fstest.c
 file		test/synchdet.c
+file		test/a1locktest.c
 optfile net	test/nettest.c
