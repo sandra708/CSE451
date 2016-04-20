@@ -626,9 +626,8 @@ static struct {
 	{ "semu21",	semu21 },
 	{ "semu22",	semu22 },
 
-	/* Assignment 1 lock tests */
-	{ "lt1",	testLockCreateCorrect },
-	{ "lt2",	testLockCreateDoesNotAcceptNullName },
+	/* Assignment lock tests */
+	{ "a1a",	assignment1testsuite },
 
 	/* file system assignment tests */
 	{ "fs1",	fstest },

@@ -10,6 +10,16 @@
 
 #define NAMESTRING "lock-testing-name"
 
+void testlockcreate(void);
+//int testlockmultiplethreads();
+//int multiplethreadhelper();
+
+int assignment1testsuite(int nargs, char **args) {
+	(void)nargs; (void)args;
+        testlockcreate();
+	return 0;
+}
+
 /*
  Creates the lock, and...
  	- Tests if the lock is null
@@ -19,11 +29,9 @@
  	- Tests that the lock is unlocked initially
  	- Tests that the lock has no owner
 */
-int testLockCreateCorrect(int nargs, char **args) {
+void testlockcreate() {
 	struct lock *lk;
 	const char *name = NAMESTRING;
-
-	(void)nargs; (void)args;
 
 	lk = lock_create(name);
 
@@ -37,19 +45,33 @@ int testLockCreateCorrect(int nargs, char **args) {
 	KASSERT(lk->lock_holder == NULL);
 
 	lock_destroy(lk);
-	return 0;
 }
-
-int testLockCreateDoesNotAcceptNullName(int nargs, char **args) {
+/*
+int testlockmultiplethreads() {
 	struct lock *lk;
+	int i, result;
+
+	const char *name = NAMESTRING;
 
 	(void)nargs; (void)args;
 
-	kprintf("This should crash with a kernel null dereference\n");
-	lk = lock_create(NULL);
-	
-	(void)lk;
-	panic("testLockCreateDoesNotAcceptNullName: llock_create accepted a null name\n");
-	return 0;
+	lk = lock_create(name);
+
+	void* data;
+	*data = 0;
+	for (i=0; i<10; i++) {
+		result = thread_fork("synchtest", NULL, multipleThreadHelper,
+				     data, i);
+		kprintf("DATA: %d", *data);
+		if (result) {
+			panic("locktest: thread_fork failed: %s\n",
+		}
+		
+	}
 }
 
+int multiplethreadhelper(void *data, unsigned long num) {
+	int i;
+	*data = *data + 1;
+	return 0;
+}*/
