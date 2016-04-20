@@ -147,6 +147,10 @@ thread_create(const char *name)
 	thread->t_iplhigh_count = 1; /* corresponding to t_curspl */
 
 	/* If you add to struct thread, be sure to initialize here */
+	thread->t_parent = NULL;
+	thread->t_joinable = false;
+	threadlist_init(&thread->t_children);
+	spinlock_init(&thread->t_join_lock);
 
 	return thread;
 }
@@ -478,21 +482,15 @@ thread_make_runnable(struct thread *target, bool already_have_lock)
 	}
 }
 
-/*
- * Create a new thread based on an existing one.
- *
- * The new thread has name NAME, and starts executing in function
- * ENTRYPOINT. DATA1 and DATA2 are passed to ENTRYPOINT.
- *
- * The new thread is created in the process P. If P is null, the
- * process is inherited from the caller. It will start on the same CPU
- * as the caller, unless the scheduler intervenes first.
- */
-int
-thread_fork(const char *name,
-	    struct proc *proc,
-	    int (*entrypoint)(void *data1, unsigned long data2),
-	    void *data1, unsigned long data2)
+static
+int 
+thread_fork_helper(const char *name,
+		struct proc *proc,
+		int (*entrypoint)(void *data1, unsigned long data2),
+		void *data1, 
+		unsigned long data2, 
+		bool joinable, 
+		struct thread ** newthread_ptr)
 {
 	struct thread *newthread;
 	int result;
@@ -516,6 +514,13 @@ thread_fork(const char *name,
 
 	/* Thread subsystem fields */
 	newthread->t_cpu = curthread->t_cpu;
+
+	newthread->t_parent = curthread;
+	newthread->t_joinable = joinable;
+	if(joinable) {
+		*newthread_ptr = newthread; 
+		threadlist_addhead(&curthread->t_children, newthread);
+	}
 
 	/* Attach the new thread to its process */
 	if (proc == NULL) {
@@ -545,6 +550,25 @@ thread_fork(const char *name,
 }
 
 /*
+ * Create a new thread based on an existing one.
+ *
+ * The new thread has name NAME, and starts executing in function
+ * ENTRYPOINT. DATA1 and DATA2 are passed to ENTRYPOINT.
+ *
+ * The new thread is created in the process P. If P is null, the
+ * process is inherited from the caller. It will start on the same CPU
+ * as the caller, unless the scheduler intervenes first.
+ */
+int
+thread_fork(const char *name,
+	    struct proc *proc,
+	    int (*entrypoint)(void *data1, unsigned long data2),
+	    void *data1, unsigned long data2)
+{
+	return thread_fork_helper(name, proc, entrypoint, data1, data2, false, NULL);
+}
+
+/*
  * High level, machine-independent context switch code.
  *
  * The current thread is queued appropriately and its state is changed
@@ -553,6 +577,9 @@ thread_fork(const char *name,
  * If NEWSTATE is S_SLEEP, the thread is queued on the wait channel
  * WC, protected by the spinlock LK. Otherwise WC and Lk should be
  * NULL.
+ */ /*
+	If NEWSTATE is S_JOIN or S_EXITED, the relevant spinlock (the child in the relevant join)
+	should be passed through LK. This ensures that there is no starvation race condition. 
  */
 static
 void
@@ -609,6 +636,16 @@ thread_switch(threadstate_t newstate, struct wchan *wc, struct spinlock *lk)
 		 * on the list.
 		 */
 		threadlist_addtail(&wc->wc_threads, cur);
+		spinlock_release(lk);
+		break;
+		case S_JOIN:
+		cur->t_wchan_name = "JOIN";
+		cur->t_state = newstate;
+		spinlock_release(lk);
+		break;
+		case S_EXITED:
+		cur->t_wchan_name = "ZOMBIE";
+		cur->t_state = newstate;
 		spinlock_release(lk);
 		break;
 	    case S_ZOMBIE:
@@ -763,6 +800,20 @@ thread_startup(int (*entrypoint)(void *data1, unsigned long data2),
 	thread_exit();
 }
 
+/* Releases child thread upon parent's exit. */
+static
+void
+release_child(struct thread *child)
+{
+	spinlock_acquire(&child->t_join_lock);
+	child->t_joinable = false;
+	if(child->t_state == S_EXITED) {
+		/* Runnable thread returns to thread_exit function, at the conditional context switch  */
+		thread_make_runnable(child, false);
+	}
+	spinlock_release(&child->t_join_lock);
+}
+
 /*
  * Cause the current thread to exit.
  *
@@ -793,6 +844,35 @@ thread_exit(void)
 
 	/* Interrupts off on this processor */
         splhigh();
+
+    /* Secure our own join-spinlock before doing any join-dependent code; 
+    lock is released atomically with context switch */
+    spinlock_acquire(&cur->t_join_lock);
+
+	/* Mark all children threads as not-joinable, since only the parent thread can join */
+	struct thread *child = threadlist_remhead(&(cur->t_children));
+	while(child != NULL){
+		release_child(child);
+		
+		child = threadlist_remhead(&(cur->t_children));
+	}
+
+	/* Wake up parent thread, if parent is joined */
+	if(cur->t_parent){
+		if(cur->t_joinable && cur->t_parent->t_state == S_JOIN){
+			thread_make_runnable(cur->t_parent, false /* don't have lock */);
+		}
+	}
+
+	bool joinable = cur->t_joinable;
+
+	if(joinable){
+		thread_switch(S_EXITED, NULL, &cur->t_join_lock);
+		// we return from the switch after the parent thread joins or exits
+	} else {
+		spinlock_release(&cur->t_join_lock);
+	}
+
 	thread_switch(S_ZOMBIE, NULL, NULL);
 	panic("braaaaaaaiiiiiiiiiiinssssss\n");
 }
@@ -906,7 +986,7 @@ thread_consider_migration(void)
 			 * skip it. Then it goes back on our own run
 			 * queue below.
 			 */
-			if (t == curthread) {
+			if (t == curthread ) {
 				threadlist_addtail(&victims, t);
 				to_send--;
 				continue;
@@ -1214,21 +1294,35 @@ thread_fork_joinable(const char *name,
 	    int (*entrypoint)(void *data1, unsigned long data2),
 	    void *data1, unsigned long data2, struct thread ** newthread)
 {
-        (void) name;
-        (void) proc;
-        (void) data1;
-        (void) data2;
-        (void) entrypoint;
-        (void) newthread;
-        // implement this
-        return 0;
+        return thread_fork_helper(name, proc, entrypoint, data1, data2, true, newthread);
 }
 
 
 int 
 thread_join(struct thread * child)
 {
-        (void) child;
-        // implement this
-        return 0;
+		DEBUGASSERT(child->t_joinable);
+		DEBUGASSERT(child->t_parent == curthread);
+        
+        /* Grab the child's spinlock to secure the join before checking threadstate conditions */
+        spinlock_acquire(&child->t_join_lock);
+
+		if(child->t_state == S_EXITED){
+			// Returns child thread to thread_exit() to be deleted
+        	thread_make_runnable(child, false /* don't have lock */);
+			spinlock_release(&child->t_join_lock);
+
+			return 1;
+		}
+
+		/* Disable interrupts because we are messing with thread state */
+		//int spl = splhigh();
+
+		//curthread->t_state = S_JOIN;
+
+		/* Release child's */
+		
+		thread_switch(S_JOIN, NULL, &child->t_join_lock);
+
+        return 1;
 }

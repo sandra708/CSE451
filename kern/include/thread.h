@@ -61,6 +61,8 @@ typedef enum {
 	S_RUN,		/* running */
 	S_READY,	/* ready to run */
 	S_SLEEP,	/* sleeping */
+	S_JOIN, 	/* joined to another thread */
+	S_EXITED,  	/* exited but can still be joined to */
 	S_ZOMBIE,	/* zombie; exited but not yet deleted */
 } threadstate_t;
 
@@ -105,7 +107,10 @@ struct thread {
 	 * Public fields
 	 */
 
-	/* add more here as needed */
+	struct spinlock t_join_lock; /* Ensure never both parent in state JOIN and child in state EXITED */
+	bool t_joinable; 	/* whether the thread is joinable */
+	struct thread *t_parent; 		/* name of the parent thread */
+	struct threadlist t_children;	/* the joinable children of this thread */
 };
 
 /*
