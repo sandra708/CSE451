@@ -489,6 +489,7 @@ static const char *testmenu[] = {
 	"[fs4] FS write stress 2             ",
 	"[fs5] FS long stress                ",
 	"[fs6] FS create stress              ",
+	"[lt1-5] Lock unit tests 			 ",
 	NULL
 };
 
@@ -624,6 +625,10 @@ static struct {
 	{ "semu20",	semu20 },
 	{ "semu21",	semu21 },
 	{ "semu22",	semu22 },
+
+	/* Assignment 1 lock tests */
+	{ "lt1",	testLockCreateCorrect },
+	{ "lt2",	testLockCreateDoesNotAcceptNullName },
 
 	/* file system assignment tests */
 	{ "fs1",	fstest },

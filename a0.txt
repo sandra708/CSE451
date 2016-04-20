@@ -94,3 +94,12 @@ call number to implement the logic of the syscall, which needs to be executed wi
 privledges. 
 
 12.
+start.S initializes the kernel stack and the registers so that kmain is ready to run.
+
+kmain first calls boot, which prints out some information about the system, and then calls
+various bootstrap functions.
+
+After calling boot, kmain then calls menu, which waits for user input, and then calls menu_execute()
+on the given user input.
+
+The menu_execute takes the given input, and calls cmd_dispatch to handle it appropriately
