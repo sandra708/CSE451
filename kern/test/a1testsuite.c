@@ -10,14 +10,43 @@
 
 #define NAMESTRING "lock-testing-name"
 
+
+void init(void);
 void testlockcreate(void);
-//int testlockmultiplethreads();
-//int multiplethreadhelper();
+void testlockholder(void);
+void testlockstate(void);
+void testlockdoihold(void);
+void testlockmultiplethreads(void);
+int multiplethreadhelper(void *data, unsigned long num);
+
+static struct lock *global_lk;
+static int global1;
+static int global2;
 
 int assignment1testsuite(int nargs, char **args) {
+
+	init();
+
 	(void)nargs; (void)args;
-        testlockcreate();
+
+	/* Assignment 1 Lock unit tests */
+    testlockcreate();
+    testlockholder();
+    testlockstate();
+    testlockdoihold();
+    testlockmultiplethreads();
+
+
 	return 0;
+}
+
+
+void init() {
+	global_lk = lock_create("global_lk");
+
+	if(global_lk == NULL) {
+		panic("testLockCreateCorrect: creating new lock failed\n");
+	}
 }
 
 /*
@@ -32,11 +61,12 @@ int assignment1testsuite(int nargs, char **args) {
 void testlockcreate() {
 	struct lock *lk;
 	const char *name = NAMESTRING;
+	kprintf("Testing lock creation\n");
 
 	lk = lock_create(name);
 
 	if(lk == NULL) {
-		panic("testLockCreateCorrect: createing new lock failed\n");
+		panic("testLockCreateCorrect: creating new lock failed\n");
 	}
 	KASSERT(!strcmp(lk->lk_name, name));
 	KASSERT(lk->lk_name != name);
@@ -46,25 +76,96 @@ void testlockcreate() {
 
 	lock_destroy(lk);
 }
+
 /*
-int testlockmultiplethreads() {
+	This test makes sure that the lock_holder field is correctly set with the lock
+*/
+void testlockholder() {
 	struct lock *lk;
-	int i, result;
-
 	const char *name = NAMESTRING;
-
-	(void)nargs; (void)args;
+	kprintf("Testing lock holder correct when aquired and released\n");
 
 	lk = lock_create(name);
 
-	void* data;
-	*data = 0;
-	for (i=0; i<10; i++) {
-		result = thread_fork("synchtest", NULL, multipleThreadHelper,
-				     data, i);
-		kprintf("DATA: %d", *data);
+	if(lk == NULL) {
+		panic("testLockCreateCorrect: creating new lock failed\n");
+	}
+
+	lock_acquire(lk);
+	KASSERT(lk->lock_holder == curthread);
+	lock_release(lk);
+	KASSERT(lk->lock_holder == NULL);
+
+}
+
+/*
+	These tests insure that the lock's is_locked state is always correct
+	based on the lock_aquire and release calls
+*/
+void testlockstate() {
+	struct lock *lk;
+	const char *name = NAMESTRING;
+	kprintf("Testing lock holder correct when aquired and released\n");
+
+	lk = lock_create(name);
+
+	if(lk == NULL) {
+		panic("testLockCreateCorrect: creating new lock failed\n");
+	}
+
+	KASSERT(lk->is_locked == false);
+	lock_acquire(lk);
+	KASSERT(lk->is_locked == true);
+	lock_release(lk);
+	KASSERT(lk->is_locked == false);
+
+
+}
+
+/*
+	This tests the lock_do_i_hold function, in states where
+	the current thread holds the lock, makes sure that grabbing a lock
+	does not interfere with the states of other locks
+*/
+void testlockdoihold() {
+	struct lock *lk;
+	const char *name = NAMESTRING;
+	kprintf("Testing lock_do_i_hold function works correctly\n");
+
+	lk = lock_create(name);
+
+	if(lk == NULL) {
+		panic("testLockCreateCorrect: creating new lock failed\n");
+	}
+
+	KASSERT(lock_do_i_hold(lk) == false);
+	KASSERT(lock_do_i_hold(global_lk) == false);
+
+	lock_acquire(lk);
+		KASSERT(lk->lock_holder == curthread);
+		KASSERT(lock_do_i_hold(lk) == true);
+		KASSERT(lock_do_i_hold(global_lk) == false);
+	lock_release(lk);
+
+	KASSERT(lock_do_i_hold(lk) == false);
+	KASSERT(lock_do_i_hold(global_lk) == false);
+}
+
+void testlockmultiplethreads() {
+	struct lock *lk;
+	int i, result;
+	kprintf("Testing lock with multiple threads accessing same globals\n");
+	const char *name = NAMESTRING;
+
+	lk = lock_create(name);
+	if(lk == NULL) {
+		panic("testLockCreateCorrect: creating new lock failed\n");
+	}
+
+	for (i=0; i<50; i++) {
+		result = thread_fork("locktest", NULL, multiplethreadhelper, NULL, i);
 		if (result) {
-			panic("locktest: thread_fork failed: %s\n",
+			panic("locktest: thread_fork failed: %s\n",  strerror(result));
 		}
 		
 	}
@@ -72,6 +173,20 @@ int testlockmultiplethreads() {
 
 int multiplethreadhelper(void *data, unsigned long num) {
 	int i;
-	*data = *data + 1;
+	(void)data;
+
+	for (i=0; i<32; i++) {
+		lock_acquire(global_lk);
+		global1 = num;
+		global2 = num*num;
+
+		if (global2 != global1*global1) {
+			kprintf("Multiple Thread Test failed\n");
+			lock_release(global_lk);
+			thread_exit();
+		}
+
+		lock_release(global_lk);
+	}
 	return 0;
-}*/
+}
