@@ -107,10 +107,15 @@ struct thread {
 	 * Public fields
 	 */
 
-	struct spinlock t_join_lock; /* Ensure never both parent in state JOIN and child in state EXITED */
+	struct spinlock t_join_lock; 
+
 	bool t_joinable; 	/* whether the thread is joinable */
 	struct thread *t_parent; 		/* name of the parent thread */
 	struct threadlist t_children;	/* the joinable children of this thread */
+
+	struct thread *t_joined; 	/* the thread that this is joined to, if any, or null */
+	int t_value;			/* the value returned by this thread */
+	int t_child_value;		/* the value returned by the thread that this thread is joined to */
 };
 
 /*

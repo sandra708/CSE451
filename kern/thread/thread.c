@@ -151,6 +151,9 @@ thread_create(const char *name)
 	thread->t_joinable = false;
 	threadlist_init(&thread->t_children);
 	spinlock_init(&thread->t_join_lock);
+	thread->t_joined = NULL;
+	thread->t_value = 0;
+	thread->t_child_value = 0;
 
 	return thread;
 }
@@ -793,8 +796,8 @@ thread_startup(int (*entrypoint)(void *data1, unsigned long data2),
 	/* Enable interrupts. */
 	spl0();
 
-	/* Call the function. */
-	entrypoint(data1, data2);
+	/* Call the function. Save the returned value in the thread control block, for joins. */
+	cur->t_value = entrypoint(data1, data2);
 
 	/* Done. */
 	thread_exit();
@@ -857,9 +860,14 @@ thread_exit(void)
 		child = threadlist_remhead(&(cur->t_children));
 	}
 
-	/* Wake up parent thread, if parent is joined */
+	/* Wake up parent thread and pass the return value, if parent is joined */
 	if(cur->t_parent){
-		if(cur->t_joinable && cur->t_parent->t_state == S_JOIN){
+		if(cur->t_joinable && cur->t_parent->t_state == S_JOIN && cur->t_parent->t_joined == cur){
+			cur->t_parent->t_child_value = cur->t_value;
+			
+			// we are already joined, so another thread cannot join this one
+			cur->t_joinable = false;
+
 			thread_make_runnable(cur->t_parent, false /* don't have lock */);
 		}
 	}
@@ -1301,28 +1309,31 @@ thread_fork_joinable(const char *name,
 int 
 thread_join(struct thread * child)
 {
-		DEBUGASSERT(child->t_joinable);
-		DEBUGASSERT(child->t_parent == curthread);
+	struct thread *cur = curthread;
         
         /* Grab the child's spinlock to secure the join before checking threadstate conditions */
         spinlock_acquire(&child->t_join_lock);
 
+	if(!child->t_joinable || !(child->t_parent == cur)){
+		panic("Cannot join a non-joinable or non-child thread.");
+	}
+
 		if(child->t_state == S_EXITED){
+			// Grab the value returned by the child while we have the lock
+			cur->t_child_value = child->t_value;			
+
 			// Returns child thread to thread_exit() to be deleted
         	thread_make_runnable(child, false /* don't have lock */);
 			spinlock_release(&child->t_join_lock);
 
-			return 1;
+			return cur->t_child_value;
 		}
 
-		/* Disable interrupts because we are messing with thread state */
-		//int spl = splhigh();
-
-		//curthread->t_state = S_JOIN;
-
-		/* Release child's */
+	/* Set control block for which thread we are joined. */
+	cur->t_joined = child;
 		
 		thread_switch(S_JOIN, NULL, &child->t_join_lock);
 
-        return 1;
+	// Value has been placed on our thread control block by the child when we were woken
+        return cur->t_child_value;
 }
