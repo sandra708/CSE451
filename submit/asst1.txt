@@ -1,0 +1,34 @@
+1. When a thread sleeps, it gets put on the threadlist in the wait channel
+since waitchannel sleep gets called. It doesnt get woken until waitchannel's 
+wake one or wake all gets called.
+
+2. thread_switch() is the function that handles the part of the context switching,
+switchframe_switch() also switches the frame.
+
+3. Turning interrupts off means that no other thread can stop the current thread from
+its current proccess
+This is accomplished by aquiring a spinlock, this gives a thread exclusive access to the CPU
+It's important to do it in thread subsystem code to safely avoid any race conditions
+when aquiring locks or doing other tasks cannot be interupted without undefined behavior,\.
+
+4. A thread either calls wait channel's wake_one or wake_all to wake other threads,
+then a thread_switch() gets called to make a context switch to the next thread from 
+the scheduler.
+
+5. When a thread calls thread_exit, first the thread is removed from the procedure.
+Then interupts are turned off. Next, all of the children of that thread are released.
+Finally, thread_switch switches the context to the parent thread.
+
+6. The hardware timer has a role in scheduling in that it one thread can only take up
+so much of the CPU's time before there is a forced switch to give another thread a turn.
+This stops infinite loops from locking up a CPU.
+
+7. Every semaphore has a wait channel associated with it. When decrement is
+called and the semapore must wait, then the semaphore can call wchan_sleep
+to make this sleeping happen until wake_one or wake_all is called
+
+on increment, the semaphore can call wchan wake_one to stop the waiting
+
+8. lock_do_i_hold doesn't leak any information about the thread currently
+holding the thread, unless you are the thread holding it. This prevents
+too much information being leaked from the API
