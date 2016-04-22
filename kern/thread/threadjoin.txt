@@ -1,0 +1,24 @@
+Threadjoin documentation and design concerns.
+
+I implemented fork/join/exit for kernel threads primarily by adding two different thread states, one for a thread that is joined to another thread, so it must wait for that thread to exit before being woken, and the other for a thread that has finished executing, but can't be garbage-collected yet, because it could still be joined by a parent. 
+
+Invariant: the only ways to change a thread's running state is through the provided methods of thread_make_runnable, which places a thread on the ready list,  and thread_switch, which context switches a thread out, and switches in a thread on the ready list. 
+
+This means that for any state X which is neither S_READY or S_RUN, the only path of execution goes in a state diagram cycle: S_READY -> S_RUN -> X -> S_READY. There is only one exception, S_ZOMBIE, from which there is no outgoing state transformation. 
+
+Invariant: for each joinable parent/child pair, it cannot be true that the parent is in state S_JOIN and the child in state S_EXITED. We enforce this using a spinlock held in the child's thread control block for critical sections in thread_join and thread_exit, which is released atomically with the context switch. 
+
+Note to self: if I were re-implementing this, I would have the lock held in the parent's thread control block, which would allow for more flexibility and possiblity slightly simpler code. 
+
+This is necessary, because if a thread is in state S_JOIN, then the child it is joined to has the responsibility to wake it up as the child exits, and if a thread is in state S_EXITED, the parent has the responsibility to wake it up either when the parent joins or when the parent exits. Note that "waking up" a thread in state S_EXITED returns it to the function thread_exit, where it executes the last line of code, a context switch to state S_ZOMBIE. 
+
+It seems slightly silly to wake a thread up in order to immediately switch it out again, but the zombie threadlist is per-cpu and is not protected by a lock, so we have to guarentee that it is only accessed by threads on that cpu, and since parents and children might end up on different cpus due to load-balancing, the simplest and cleanest way to guarentee that the zombie queue is not accessed in an unprotected way is by using the context switch within the patterns of the established state machine. 
+
+We keep a substantial amount of state in the thread control block  to enable join functionality. Obviously, we have a spinlock in every thread control block. We also keep a boolean to mark whether or not a thread is joinable. Obviously, a thread has to be created as joinable, but it is also true that if the parent exits, or if the parent is joined and then released as the child exits, then the child is no longer joinable and we want to reset the boolean in order to ensure a clean exit, rather than lingering in state S_EXITED with no parent thread to release us to state S_ZOMBIE. 
+
+We also maintain a pointer to the parent, so that we can verify that the parent is the one joining, and a pointer to the thread currently joined to, if any, and we maintain a list of joinable children, so that they can be released as the control block exits. 
+
+Lastly, we maintain the value returned by the thread, because join needs to return this value, and we provide an extra integer for transferring the child's value temporarily during a join, because by the time that join() actually returns, the child thread may have been garbage-collected. It isn't strictly necessarily, because since the parent thread is by definition not yet finished executing, we could simply store the child's value in the same slot as the parent's value will be in once the parent finishes, but that is somewhat more confusing and thus dangerous. 
+
+Unfortunately, a substantial amount of the complexity in thread_join involves making it memory safe, such that as long as all threads eventually exit, all thread control blocks are eventually freed, but that pointers are never kept or used after that freeing and blocks are never freed more than once. 
+
