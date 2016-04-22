@@ -18,12 +18,20 @@ void testlockstate(void);
 void testlockdoihold(void);
 void testlockmultiplethreads(void);
 int multiplethreadhelper(void *data, unsigned long num);
+void testcvcreate(void);
+void testsignal(void);
+int waiter(void *data, unsigned long num);
+void testbroadcast(void);
+int bwaiter(void *data, unsigned long num);
+void testcvlock(void);
+void testcvdestroy(void);
 
 static struct lock *global_lk;
+static struct cv *global_cv;
 static int global1;
 static int global2;
 
-int assignment1testsuite(int nargs, char **args) {
+int asst1_tests(int nargs, char **args) {
 
 	init();
 
@@ -35,7 +43,11 @@ int assignment1testsuite(int nargs, char **args) {
     testlockstate();
     testlockdoihold();
     testlockmultiplethreads();
-
+    testcvcreate();
+    testsignal();
+    testbroadcast();
+    testcvlock();
+    testcvdestroy();
 
 	return 0;
 }
@@ -46,6 +58,11 @@ void init() {
 
 	if(global_lk == NULL) {
 		panic("testLockCreateCorrect: creating new lock failed\n");
+	}
+
+  global_cv = cv_create("global_cv");
+  if(global_cv == NULL) {
+		panic("testCvCreateCorrect: creating new cv failed\n");
 	}
 }
 
@@ -83,7 +100,7 @@ void testlockcreate() {
 void testlockholder() {
 	struct lock *lk;
 	const char *name = NAMESTRING;
-	kprintf("Testing lock holder correct when aquired and released\n");
+	kprintf("Testing lock holder correct when acquired and released\n");
 
 	lk = lock_create(name);
 
@@ -100,12 +117,12 @@ void testlockholder() {
 
 /*
 	These tests insure that the lock's is_locked state is always correct
-	based on the lock_aquire and release calls
+	based on the lock_acquire and release calls
 */
 void testlockstate() {
 	struct lock *lk;
 	const char *name = NAMESTRING;
-	kprintf("Testing lock holder correct when aquired and released\n");
+	kprintf("Testing lock holder correct when acquired and released\n");
 
 	lk = lock_create(name);
 
@@ -190,3 +207,132 @@ int multiplethreadhelper(void *data, unsigned long num) {
 	}
 	return 0;
 }
+
+/*
+  Tests that new cvs are created with the proper values.
+*/
+void testcvcreate() {
+	struct cv *cv;
+	const char *name = NAMESTRING;
+	kprintf("Testing cv creation\n");
+
+	cv = cv_create(name);
+
+	if(cv == NULL) {
+		panic("testCvCreateCorrect: creating new cv failed\n");
+	}
+	KASSERT(!strcmp(cv->cv_name, name));
+	KASSERT(cv->cv_name != name);
+	KASSERT(cv->cv_wchan != NULL);
+	KASSERT(cv->cv_lock == NULL);
+
+	cv_destroy(cv);
+}
+
+/*
+  Tests that cv_signal properly wakes up a waiter.
+*/
+void testsignal() {
+  kprintf("Testing cv signal\n");
+  global1 = 1;
+  thread_fork("cvtest", NULL, waiter, NULL, 1);
+  while(global1 == 1) {
+    global2 = global2;
+  }
+  lock_acquire(global_lk);
+  KASSERT(global1 == 2);
+  global1 = 3;
+  cv_signal(global_cv, global_lk);
+  KASSERT(global1 == 3);
+  lock_release(global_lk);
+  clocksleep(1);
+  KASSERT(global1 == 4);
+}
+
+/*
+  Helper for cv signal test method.
+*/
+int waiter(void *data, unsigned long num) {
+  global2 = num;
+  (void)data;
+  lock_acquire(global_lk);
+  global1 = 2;
+  while(global1 == 2) {
+    cv_wait(global_cv, global_lk);
+  }
+  KASSERT(global1 == 3);
+  lock_release(global_lk);
+  global1 = 4;
+  return 0;
+}
+
+/*
+  Tests that cv_broadcast properly wakes up all waiters.
+*/
+void testbroadcast() {
+  kprintf("Testing cv broadcast\n");
+  global1 = 1;
+  thread_fork("cvtest1", NULL, bwaiter, NULL, 1);
+  thread_fork("cvtest2", NULL, bwaiter, NULL, 1);
+  thread_fork("cvtest3", NULL, bwaiter, NULL, 1);
+  thread_fork("cvtest4", NULL, bwaiter, NULL, 1);
+  while(global1 < 5) {
+    global2 = global2;
+  }
+  lock_acquire(global_lk);
+  KASSERT(global1 == 5);
+  global1 = 6;
+  cv_broadcast(global_cv, global_lk);
+  KASSERT(global1 == 6);
+  lock_release(global_lk);
+  clocksleep(1);
+  KASSERT(global1 == 10);
+}
+
+/*
+  Helper for the cv broadcast test method.
+*/
+int bwaiter(void *data, unsigned long num) {
+  global2 = num;
+  (void)data;
+  lock_acquire(global_lk);
+  global1++;
+  while(global1 < 6) {
+    cv_wait(global_cv, global_lk);
+  }
+  lock_release(global_lk);
+  global1++;
+  return 0;
+}
+
+/*
+  Tests that a cv is properly set to employ a certain lock.
+*/
+void testcvlock() {
+  kprintf("Testing cv lock is set properly\n");
+  global1 = 1;
+  thread_fork("cvtest", NULL, waiter, NULL, 1);
+  while(global1 == 1) {
+    global2 = global2;
+  }
+  lock_acquire(global_lk);
+  KASSERT(global_cv->cv_lock == global_lk);
+  global1 = 3;
+  cv_signal(global_cv, global_lk);
+  KASSERT(global_cv->cv_lock == global_lk);
+  lock_release(global_lk);
+  clocksleep(1);
+  KASSERT(global_cv->cv_lock == global_lk);
+}
+
+/*
+  Tests that destroying a previously-used cv still works properly.
+*/
+void testcvdestroy() {
+  kprintf("Testing cv destroy\n");
+  cv_destroy(global_cv);
+}
+  
+  
+  
+  

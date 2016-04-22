@@ -287,6 +287,7 @@ file      lib/misc.c
 file      lib/queue.c
 file      lib/time.c
 file      lib/uio.c
+file      lib/safelist.c
 
 defoption noasserts
 
@@ -454,5 +455,5 @@ file		test/semunit.c
 file		test/kmalloctest.c
 file		test/fstest.c
 file		test/synchdet.c
-file		test/a1testsuite.c
+file		test/asst1_tests.c
 optfile net	test/nettest.c

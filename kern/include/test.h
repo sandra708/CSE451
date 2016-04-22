@@ -112,7 +112,7 @@ int kmalloctest4(int, char **);
 int nettest(int, char **);
 
 /* Assignment 1 unit tests */
-int assignment1testsuite(int, char **);
+int asst1_tests(int, char **);
 
 /* Routine for running a user-level program. */
 int runprogram(char *progname);
