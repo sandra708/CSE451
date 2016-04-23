@@ -79,6 +79,7 @@ static void writeCleanup(struct safelist* lst) {
 struct safelist* safelist_create(void) {
 
   struct safelist *newlist = (struct safelist*) kmalloc(sizeof(struct safelist));
+  newlist->lock = lock_create("Safelist");
 
   if (newlist == NULL) {
     return NULL;

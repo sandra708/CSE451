@@ -26,7 +26,11 @@ int bwaiter(void *data, unsigned long num);
 void testcvlock(void);
 void testcvdestroy(void);
 
-void testlist();
+int appendThread(void *data, unsigned long num);
+int appendAndPollThread(void *data, unsigned long num);
+int pollThread(void *data, unsigned long num);
+int frontThread(void *data, unsigned long num);
+void testlist(void);
 
 static struct lock *global_lk;
 static struct cv *global_cv;
@@ -52,6 +56,8 @@ int asst1_tests(int nargs, char **args) {
     testcvlock();
     testcvdestroy();
     testlist();
+
+    safelist_destroy(global_list);
 
 	return 0;
 }
@@ -209,7 +215,7 @@ int multiplethreadhelper(void *data, unsigned long num) {
 		if (global2 != global1*global1) {
 			kprintf("Multiple Thread Test failed\n");
 			lock_release(global_lk);
-			thread_exit();
+			return 1;
 		}
 
 		lock_release(global_lk);
@@ -344,6 +350,7 @@ void testcvdestroy() {
 
 int frontThread(void *data, unsigned long num){
 	(void) data;
+	(void) num;
 	if(safelist_front(global_list) == NULL){
 		return 0;
 	}
@@ -354,21 +361,24 @@ int appendAndPollThread(void *data, unsigned long num){
 	(void) data;
 	unsigned long val = num;
 	safelist_push_back(global_list, &val);
-	void *res = safelist_pop_front();
-	KASSERT(*res == val);
-	return *res;
+	void* res = safelist_next(global_list);
+	unsigned int* pop = res;
+	KASSERT(*pop == val);
+	return *pop;
 }
 
 int pollThread(void *data, unsigned long num){
 	(void) data;
-	void *res = safelist_pop_front();
-	return res;
+	(void) num;
+	void* res = safelist_next(global_list);
+	int* pop = res;
+	return *pop;
 }
 
 int appendThread(void *data, unsigned long num){
 	(void) data;
 	unsigned long val = num;
-	safelist_push_back(&val);
+	safelist_push_back(global_list, &val);
 	return 0;
 }
 
@@ -399,11 +409,11 @@ void testlist(){
 	kprintf("Testing push_back and pop_front returns correct number of elements\n");
 
 	thread_fork_joinable("poll_thread", NULL, pollThread, NULL, 1, &first);
-	threadsleep(1);
+	clocksleep(1);
 	thread_fork("append_thread", NULL, appendThread, NULL, 3);
 	KASSERT(thread_join(first) == 3);
 
-	kprintf("Testing pop_front waited for element to be appended.\n);
+	kprintf("Testing pop_front waited for element to be appended.\n");
 }
   
   

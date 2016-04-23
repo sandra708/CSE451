@@ -111,7 +111,9 @@ struct thread {
 
 	bool t_joinable; 	/* whether the thread is joinable */
 	struct thread *t_parent; 		/* name of the parent thread */
-	struct threadlist t_children;	/* the joinable children of this thread */
+	/* we cannot use struct threadlist because it is too narrowly designed; these two link the tree structure of joinable forks */
+	struct thread *t_child;			/* pointer to most recently forked child */
+	struct thread *t_sibling;		/* links all forks of the same parent, in reverse creation order */
 
 	struct thread *t_joined; 	/* the thread that this is joined to, if any, or null */
 	int t_value;			/* the value returned by this thread */
