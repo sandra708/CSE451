@@ -149,11 +149,12 @@ thread_create(const char *name)
 	/* If you add to struct thread, be sure to initialize here */
 	thread->t_parent = NULL;
 	thread->t_joinable = false;
-	threadlist_init(&thread->t_children);
 	spinlock_init(&thread->t_join_lock);
 	thread->t_joined = NULL;
 	thread->t_value = 0;
 	thread->t_child_value = 0;
+	thread->t_child = NULL;
+	thread->t_sibling = NULL;
 
 	return thread;
 }
@@ -522,7 +523,8 @@ thread_fork_helper(const char *name,
 	newthread->t_joinable = joinable;
 	if(joinable) {
 		*newthread_ptr = newthread; 
-		threadlist_addhead(&curthread->t_children, newthread);
+		newthread->t_sibling = curthread->t_child;
+		curthread->t_child = newthread;
 	}
 
 	/* Attach the new thread to its process */
@@ -647,7 +649,7 @@ thread_switch(threadstate_t newstate, struct wchan *wc, struct spinlock *lk)
 		spinlock_release(lk);
 		break;
 		case S_EXITED:
-		cur->t_wchan_name = "ZOMBIE";
+		cur->t_wchan_name = "EXITED";
 		cur->t_state = newstate;
 		spinlock_release(lk);
 		break;
@@ -853,20 +855,18 @@ thread_exit(void)
     spinlock_acquire(&cur->t_join_lock);
 
 	/* Mark all children threads as not-joinable, since only the parent thread can join */
-	struct thread *child = threadlist_remhead(&(cur->t_children));
+	struct thread *child = cur->t_child;
 	while(child != NULL){
+		struct thread *next = child->t_sibling;
 		release_child(child);
 		
-		child = threadlist_remhead(&(cur->t_children));
+		child = next;
 	}
 
 	/* Wake up parent thread and pass the return value, if parent is joined */
 	if(cur->t_parent){
 		if(cur->t_joinable && cur->t_parent->t_state == S_JOIN && cur->t_parent->t_joined == cur){
 			cur->t_parent->t_child_value = cur->t_value;
-			
-			// we are already joined, so another thread cannot join this one
-			cur->t_joinable = false;
 
 			thread_make_runnable(cur->t_parent, false /* don't have lock */);
 		}

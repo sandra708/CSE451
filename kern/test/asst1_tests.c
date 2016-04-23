@@ -371,7 +371,8 @@ int pollThread(void *data, unsigned long num){
 	(void) data;
 	(void) num;
 	void* res = safelist_next(global_list);
-	int* pop = res;
+	safelist_pop_front(global_list);
+	unsigned int* pop = res;
 	return *pop;
 }
 
@@ -387,7 +388,7 @@ void testlist(){
 	struct thread *front;
 	thread_fork_joinable("front_thread", NULL, frontThread, NULL, 1, &front);
 	KASSERT(thread_join(front) == 0);
-	kprintf("Testing fast return of head of list passed.\n");
+	kprintf("Testing front() return immediately passed.\n");
 
 	struct thread *first;
 	struct thread *next;
@@ -399,9 +400,20 @@ void testlist(){
 	KASSERT(thread_join(first) == 1);
 	KASSERT(thread_join(next) == 1);
 	KASSERT(thread_join(third) == 1);
+
+	KASSERT(safelist_isempty(global_list) == false);
+	KASSERT(safelist_getsize(global_list) == 3);
+	safelist_assertvalid(global_list);
+	kprintf("After three push_back, thread had three elements.\n");
+
+	safelist_pop_front(global_list);
+	safelist_pop_front(global_list);
+	safelist_pop_front(global_list);
 	
 	thread_fork_joinable("append_thread", NULL, appendAndPollThread, NULL, 2, &first);
 	KASSERT(thread_join(first) == 2);
+
+	safelist_pop_front(global_list);
 
 	KASSERT(safelist_getsize(global_list) == 0);
 	KASSERT(safelist_isempty(global_list) == true);
@@ -413,7 +425,11 @@ void testlist(){
 	thread_fork("append_thread", NULL, appendThread, NULL, 3);
 	KASSERT(thread_join(first) == 3);
 
-	kprintf("Testing pop_front waited for element to be appended.\n");
+	kprintf("Testing next() waited for element to be appended.\n");
+
+	safelist_assertvalid(global_list);
+
+	kprintf("All thread-safe list tests passed.\n");
 }
   
   
