@@ -6,7 +6,7 @@
 #include <current.h>
 #include <clock.h>
 #include <test.h>
-
+#include <safelist.h>
 
 #define NAMESTRING "lock-testing-name"
 
@@ -26,10 +26,13 @@ int bwaiter(void *data, unsigned long num);
 void testcvlock(void);
 void testcvdestroy(void);
 
+void testlist();
+
 static struct lock *global_lk;
 static struct cv *global_cv;
 static int global1;
 static int global2;
+static struct safelist *global_list;
 
 int asst1_tests(int nargs, char **args) {
 
@@ -48,6 +51,7 @@ int asst1_tests(int nargs, char **args) {
     testbroadcast();
     testcvlock();
     testcvdestroy();
+    testlist();
 
 	return 0;
 }
@@ -63,6 +67,11 @@ void init() {
   global_cv = cv_create("global_cv");
   if(global_cv == NULL) {
 		panic("testCvCreateCorrect: creating new cv failed\n");
+	}
+
+	global_list = safelist_create();
+	if(global_list == NULL){
+		panic("testListCreateCorrect: creating new list failed\n");
 	}
 }
 
@@ -332,7 +341,69 @@ void testcvdestroy() {
   kprintf("Testing cv destroy\n");
   cv_destroy(global_cv);
 }
-  
-  
+
+int frontThread(void *data, unsigned long num){
+	(void) data;
+	if(safelist_front(global_list) == NULL){
+		return 0;
+	}
+	return -1;
+}  
+
+int appendAndPollThread(void *data, unsigned long num){
+	(void) data;
+	unsigned long val = num;
+	safelist_push_back(global_list, &val);
+	void *res = safelist_pop_front();
+	KASSERT(*res == val);
+	return *res;
+}
+
+int pollThread(void *data, unsigned long num){
+	(void) data;
+	void *res = safelist_pop_front();
+	return res;
+}
+
+int appendThread(void *data, unsigned long num){
+	(void) data;
+	unsigned long val = num;
+	safelist_push_back(&val);
+	return 0;
+}
+
+void testlist(){
+	kprintf("Testing thread-safe list.\n");
+	struct thread *front;
+	thread_fork_joinable("front_thread", NULL, frontThread, NULL, 1, &front);
+	KASSERT(thread_join(front) == 0);
+	kprintf("Testing fast return of head of list passed.\n");
+
+	struct thread *first;
+	struct thread *next;
+	struct thread *third;
+	thread_fork_joinable("append_thread", NULL, appendAndPollThread, NULL, 1, &first);
+	thread_fork_joinable("append_thread", NULL, appendAndPollThread, NULL, 1, &next);
+	thread_fork_joinable("append_thread", NULL, appendAndPollThread, NULL, 1, &third);
+
+	KASSERT(thread_join(first) == 1);
+	KASSERT(thread_join(next) == 1);
+	KASSERT(thread_join(third) == 1);
+	
+	thread_fork_joinable("append_thread", NULL, appendAndPollThread, NULL, 2, &first);
+	KASSERT(thread_join(first) == 2);
+
+	KASSERT(safelist_getsize(global_list) == 0);
+	KASSERT(safelist_isempty(global_list) == true);
+
+	kprintf("Testing push_back and pop_front returns correct number of elements\n");
+
+	thread_fork_joinable("poll_thread", NULL, pollThread, NULL, 1, &first);
+	threadsleep(1);
+	thread_fork("append_thread", NULL, appendThread, NULL, 3);
+	KASSERT(thread_join(first) == 3);
+
+	kprintf("Testing pop_front waited for element to be appended.\n);
+}
   
   
