@@ -3,4 +3,5 @@ build/
 kern/compile/
 tags
 TAGS
+**/build
 
