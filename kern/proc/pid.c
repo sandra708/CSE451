@@ -27,6 +27,10 @@
  * SUCH DAMAGE.
  */
 
+#include <types.h>
+#include <current.h>
+#include <pid.h>
+
 int pid_allocate_helper(struct pid_tree *tree, struct proc *proc, int pid_min, int pid_max);
 
 struct pid_tree *pid_create_tree(struct proc *kproc){
@@ -93,29 +97,30 @@ int pid_allocate_helper(struct pid_tree *tree, struct proc *proc, int pid_min, i
 	}
 
 	// find the least-full subtree
-	int max = tree->subtree_size[0];
+	int max = tree->subtree_sizes[0];
 	int idx = 0;
 	for(int i = 1; i < PID_DIR_SIZE; i++){
-		if(tree->subtree_size[i] < max){
-			max = tree->subtree_size[i];
+		if(tree->subtree_sizes[i] < max){
+			max = tree->subtree_sizes[i];
 			idx = i;
 		}
 	}
 
 	// if the subtree doesn't exist, create it
-	if(tree->subtrees[idx] == NULL{
-		tree->subtrees[idx] = pid_create_subtree(NULL);
+	if(tree->subtrees[idx] == NULL){
+		tree->subtrees[idx] = pid_create_tree(NULL);
 	}
 
 	// update subtree count  
-	tree->subtree_counts[idx] += 1;
+	tree->subtree_sizes[idx] += 1;
 
 	//search recursively
 	pid_min = tree->local_pids[idx] + 1;
 	if(idx < PID_DIR_SIZE - 1){
 		pid_max = tree->local_pids[idx + 1] - 1;
 	}
-	return pid_allocate_helper(tree->subtrees[i], proc, pid_min, pid_max);
+
+	return pid_allocate_helper(tree->subtrees[idx], proc, pid_min, pid_max);
 }
 
 struct proc *pid_get_proc(struct pid_tree *tree, int pid){
@@ -130,7 +135,7 @@ struct proc *pid_get_proc(struct pid_tree *tree, int pid){
 			return tree->local_procs[i];
 		} else if(pid < tree->local_pids[i]){
 			// we need to search between pid[i - 1] < pid < pid[i]
-			if(i = 0){
+			if(i == 0){
 				// falling off the front, there are no pids small enough to match
 				return NULL;
 			}
@@ -177,7 +182,7 @@ struct proc *pid_remove_proc(struct pid_tree *tree, int pid){
 			return proc;	
 		} else if(pid < tree->local_pids[i]){
 			// we need to search between pid[i - 1] < pid < pid[i]
-			if(i = 0){
+			if(i == 0){
 				// falling off the front, there are no pids small enough to match
 				return NULL;
 			}
@@ -189,28 +194,30 @@ struct proc *pid_remove_proc(struct pid_tree *tree, int pid){
 	return pid_remove_proc(tree->subtrees[PID_DIR_SIZE - 1], pid);
 }
 
-void pid_destroy_tree(struct pid_tree *tree){
+int pid_destroy_tree(struct pid_tree *tree){
 	if(tree == NULL){
-		return;
+		return 0;
 	}
 
-	// verify tree is empty
 	for(int i = 0; i < PID_DIR_SIZE; i++){
-		bool check = false;
-		check = check || (tree->local_pids[i] != -1);
-		check = check || (tree->local_procs[i] != NULL);
-		check = check || (tree->subtree_sizes[i] != 0);
-		check = check || (tree->subtrees[i] != NULL);
-
-		if(check){
-			panic("Pid Tree should be empty before destroying ...");
+		if(tree->subtrees[i] != NULL){
+			// recursively destroy down the tree
+			int det = pid_destroy_tree(tree->subtrees[i]);
+			tree->subtrees[i] = NULL;
+			if(!det){
+				return 0;
+			}
+		}
+		// an active process exists
+		if(tree->local_procs[i] != NULL){
+			return 0;
 		}
 	}
 
 	lock_destroy(tree->lock);
 	kfree(tree);
 
-	return;
+	return 1;
 }
 
 void pid_acquire_lock(struct pid_tree *tree){

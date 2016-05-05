@@ -490,6 +490,7 @@ static const char *testmenu[] = {
 	"[fs5] FS long stress                ",
 	"[fs6] FS create stress              ",
 	"[a1a] Assignment 1 test suite 			 ",
+	"[proc1] Assignment 2 process tests 	",
 	NULL
 };
 
@@ -628,6 +629,9 @@ static struct {
 
 	/* Assignment lock tests */
 	{ "a1a",	asst1_tests },
+
+	/* Assignment 2 unit tests */
+	{ "proc1", test_processes }, 
 
 	/* file system assignment tests */
 	{ "fs1",	fstest },

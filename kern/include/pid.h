@@ -90,9 +90,10 @@ struct proc *pid_remove_proc(struct pid_tree *tree, int pid);
 
 /*
 	Destroyes the given tree-block and all of its children, recursively, detatching from the parent if one is present.
-	Will fail if any active processes besides KPROC, the kernel processes, exist
+	Returns 1 on success
+	Will fail with 0 if any active processes exist in the tree
 */
-void pid_destroy_tree(struct pid_tree *tree);
+int pid_destroy_tree(struct pid_tree *tree);
 
 void pid_acquire_lock(struct pid_tree *tree);
 

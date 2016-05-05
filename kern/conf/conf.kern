@@ -336,6 +336,7 @@ file      thread/threadlist.c
 #
 
 file      proc/proc.c
+file 	  proc/pid.c
 
 #
 # Virtual memory system
@@ -456,4 +457,5 @@ file		test/kmalloctest.c
 file		test/fstest.c
 file		test/synchdet.c
 file		test/asst1_tests.c
+file 		test/proc_unit_tests.c
 optfile net	test/nettest.c

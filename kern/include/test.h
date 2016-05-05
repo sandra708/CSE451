@@ -114,6 +114,9 @@ int nettest(int, char **);
 /* Assignment 1 unit tests */
 int asst1_tests(int, char **);
 
+/* Assignment 2 Multi-process unit tests */
+int test_processes(int, char**);
+
 /* Routine for running a user-level program. */
 int runprogram(char *progname);
 

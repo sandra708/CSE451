@@ -37,6 +37,7 @@
  */
 
 #include <spinlock.h>
+#include <pid.h>
 
 struct addrspace;
 struct thread;
