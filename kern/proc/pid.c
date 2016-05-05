@@ -47,6 +47,8 @@ struct pid_tree *pid_create_tree(struct proc *kproc){
 		return NULL;
 	}
 
+	tree->parent = NULL;
+
 	for(int i = 0; i < PID_DIR_SIZE; i++){
 		tree->local_pids[i] = -1;
 		tree->local_procs[i] = NULL;
@@ -109,6 +111,7 @@ int pid_allocate_helper(struct pid_tree *tree, struct proc *proc, int pid_min, i
 	// if the subtree doesn't exist, create it
 	if(tree->subtrees[idx] == NULL){
 		tree->subtrees[idx] = pid_create_tree(NULL);
+		tree->subtrees[idx]->parent = tree;
 	}
 
 	// update subtree count  
@@ -139,7 +142,7 @@ struct proc *pid_get_proc(struct pid_tree *tree, int pid){
 				// falling off the front, there are no pids small enough to match
 				return NULL;
 			}
-			return pid_get_proc(tree->subtrees[i], pid);
+			return pid_get_proc(tree->subtrees[i - 1], pid);
 		}
 	}
 
@@ -166,27 +169,30 @@ struct proc *pid_remove_proc(struct pid_tree *tree, int pid){
 				}
 			}
 
-			if(tree->parent != NULL){
-				struct pid_tree *parent = tree->parent;
+			// if the block is now empty, remove it from the parent and decrement sizes up the tree
+			struct pid_tree *parent = tree->parent;
+			while(parent != NULL){
 				for(int j = PID_DIR_SIZE -1; j >= 0; j--){
 					if(parent->local_pids[j] < pid){
 						parent->subtree_sizes[j]--;
 						int size = parent->subtree_sizes[j];
 						if(size == 0){ 
 							pid_destroy_tree(parent->subtrees[j]);
+							parent->subtrees[j] = NULL;
 						}
 						break;
 					}
 				}
+				parent = parent->parent;
 			}
 			return proc;	
 		} else if(pid < tree->local_pids[i]){
-			// we need to search between pid[i - 1] < pid < pid[i]
+			// we need to search between pid[i - 1] < pid < pid[i], which is subtree[i - 1]
 			if(i == 0){
 				// falling off the front, there are no pids small enough to match
 				return NULL;
 			}
-			return pid_remove_proc(tree->subtrees[i], pid);
+			return pid_remove_proc(tree->subtrees[i - 1], pid);
 		}
 	}
 
@@ -203,10 +209,10 @@ int pid_destroy_tree(struct pid_tree *tree){
 		if(tree->subtrees[i] != NULL){
 			// recursively destroy down the tree
 			int det = pid_destroy_tree(tree->subtrees[i]);
-			tree->subtrees[i] = NULL;
 			if(!det){
 				return 0;
 			}
+			tree->subtrees[i] = NULL;
 		}
 		// an active process exists
 		if(tree->local_procs[i] != NULL){

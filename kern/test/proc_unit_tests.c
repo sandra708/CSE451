@@ -41,7 +41,7 @@ void test_pid_tree(void){
 	verify_subtree_counts(tree);
 	verify_number(tree, 0);
 
-	kprintf("Pid directory tree successfully initialized.");
+	kprintf("Pid directory tree successfully initialized.\n");
 
 	// add processes to the tree, verifying at each one that we can retrieve it
 	const int num_test = 257;
@@ -64,13 +64,13 @@ void test_pid_tree(void){
 	verify_ordering(tree);
 	verify_number(tree, 257);
 
-	kprintf("Adding and retrieving processes by a single thread is successful.");
+	kprintf("Adding and retrieving processes by a single thread is successful.\n");
 
 	KASSERT(!pid_destroy_tree(tree));
 
-	kprintf("Attempting to destroy a tree with active processes failed.");
+	kprintf("Attempting to destroy a tree with active processes failed.\n");
 
-	for(int i = num_test - 1; i >= 0; i--){
+	for(int i = 0; i < num_test; i++){
 		pid_acquire_lock(tree);
 		pid_remove_proc(tree, pids[i]);
 		pid_release_lock(tree);
@@ -80,16 +80,16 @@ void test_pid_tree(void){
 	verify_ordering(tree);
 	verify_number(tree, 0);
 
-	kprintf("Removing processes by a single thread is successful.");
+	kprintf("Removing processes by a single thread is successful.\n");
 
 	KASSERT(pid_destroy_tree(tree));
 	tree = NULL;
 
-	kprintf("Destroying an empty tree was successful.");
+	kprintf("Destroying an empty tree was successful.\n");
 
 	KASSERT(!pid_destroy_tree(tree));
 
-	kprintf("Attempting to destroy a NULL pointer failed.");
+	kprintf("Attempting to destroy a NULL pointer failed.\n");
 
 	struct proc *proc;
 	proc = kmalloc(sizeof(*proc));
@@ -108,12 +108,12 @@ void test_pid_tree(void){
 	verify_subtree_counts(tree);
 	verify_number(tree, 1);
 
-	kprintf("Adding and removing processes with multiple threads succeeds.");
+	kprintf("Adding and removing processes with multiple threads succeeds.\n");
 
 	struct proc *kproc = pid_remove_proc(tree, 0);
 	KASSERT(kproc == proc);
 
-	kprintf("Removing the initial kernel process at pre-determined pid = 0 succeeds.");
+	kprintf("Removing the initial kernel process at pre-determined pid = 0 succeeds.\n");
 
 	KASSERT(pid_destroy_tree(tree));
 
@@ -170,11 +170,10 @@ void verify_subtree_counts(struct pid_tree *tree){
 void verify_number(struct pid_tree *tree, int goal){
 	int count = 0;
 	for(int i = 0; i < PID_DIR_SIZE; i++){
-		if(tree->local_pids[i] != -1){
-			KASSERT(tree->local_procs[i] != NULL);
+		if(tree->local_procs[i] != NULL){
+			KASSERT(tree->local_pids[i] != -1);
 			count++;
-		}
-		if(tree->subtrees[i] == NULL){
+		} if(tree->subtrees[i] == NULL){
 			KASSERT(tree->subtree_sizes[i] == 0);
 		} else{
 			verify_number(tree->subtrees[i], tree->subtree_sizes[i]);
