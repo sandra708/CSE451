@@ -110,6 +110,9 @@ syscall(struct trapframe *tf)
 		break;
 
 	    /* Add stuff here */
+	    case SYS_getpid:
+		err = sys_getpid();
+		break;
 
 	    default:
 		kprintf("Unknown syscall %d\n", callno);

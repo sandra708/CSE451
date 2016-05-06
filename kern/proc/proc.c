@@ -43,9 +43,9 @@
  */
 
 #include <types.h>
+#include <current.h>
 #include <spl.h>
 #include <proc.h>
-#include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
 
@@ -53,6 +53,11 @@
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+
+/* 
+ * The process directory, which matches process ids to processes. 
+ */
+struct pid_tree *pids;
 
 /*
  * Create a proc structure.
@@ -81,6 +86,40 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+
+	/* User-process fields */
+	proc->lock = lock_create("PCB LOCK");
+	if(proc->lock == NULL){
+		kfree(proc->p_name);
+		kfree(proc);
+		return NULL;
+	}
+
+	/* We will instantiate this array if and when this process has at least one child */
+	proc->children = NULL;
+	proc->num_children = 0;
+	
+	// Should be only the bootstrapping kernel process
+	if(pids == NULL){
+		pids = pid_create_tree(proc);
+		proc->pid = 0;
+	} else {
+		pid_acquire_lock(pids);
+		proc->pid = pid_allocate(pids, proc);
+		if(proc->pid < 0){
+			kfree(proc->p_name);
+			kfree(proc->lock);
+			kfree(proc->children);
+			kfree(proc);
+			return NULL;
+		}
+		pid_release_lock(pids);
+	}
+
+	proc->parent = -1;
+	proc->waitpid = -1;
+	proc->exited = false;
+	proc->exit_val = 0;
 
 	return proc;
 }
@@ -168,8 +207,28 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
+	/* Acquire the process directory tree lock */
+	pid_acquire_lock(pids);
+	
+	/* TODO: Release children from obligations */
+
+	/* Destroy data structures */
+	lock_destroy(proc->lock);
+
+	if(proc->children != NULL){
+		kfree(proc->children);
+	}
+
+	proc->exited = true;
+
+	/* TODO: Only free if we can exit immediately; otherwise, wait */
+
+	pid_remove_proc(pids, proc->pid);
 	kfree(proc->p_name);
 	kfree(proc);
+
+	/* Release process directory tree lock */
+	pid_release_lock(pids);
 }
 
 /*
@@ -179,7 +238,7 @@ void
 proc_bootstrap(void)
 {
 	kproc = proc_create("[kernel]");
-	if (kproc == NULL) {
+	if (kproc == NULL || pids == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
 }

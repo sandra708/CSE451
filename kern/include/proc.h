@@ -37,6 +37,7 @@
  */
 
 #include <spinlock.h>
+#include <synch.h>
 #include <pid.h>
 
 struct addrspace;
@@ -71,7 +72,19 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
-	/* add more material here as needed */
+	/* User-process fields */
+
+	struct lock *lock;		/* Sleeplock to proctect the parent/child statuses */
+
+	int pid;			/* the process id for this process */
+	int parent;			/* the process id for the parent's process (if any) (-1 if none) */
+	int waitpid;			/* the process id being waited for, if any (-1 if none) */
+
+	int *children;			/* the process ids for the children of this process (if any) */
+	int num_children;		/* the number of children stored at the given array*/
+
+	int exit_val;			/* value that this process exited with (if it has exited) */
+	bool exited;			/* whether the process has exited */
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */

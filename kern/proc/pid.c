@@ -111,6 +111,10 @@ int pid_allocate_helper(struct pid_tree *tree, struct proc *proc, int pid_min, i
 	// if the subtree doesn't exist, create it
 	if(tree->subtrees[idx] == NULL){
 		tree->subtrees[idx] = pid_create_tree(NULL);
+		// if we can't create it, return -1 as an error
+		if(tree->subtrees[idx] == NULL){
+			return -1;
+		}
 		tree->subtrees[idx]->parent = tree;
 	}
 
@@ -118,7 +122,10 @@ int pid_allocate_helper(struct pid_tree *tree, struct proc *proc, int pid_min, i
 	tree->subtree_sizes[idx] += 1;
 
 	//search recursively
-	pid_min = tree->local_pids[idx] + 1;
+	if(pid_min < tree->local_pids[idx] + 1){
+		// only false if we're dealing with KPROC; pid = 1 may not be a valid pid, though pid = 0 is	
+		pid_min = tree->local_pids[idx] + 1;
+	}
 	if(idx < PID_DIR_SIZE - 1){
 		pid_max = tree->local_pids[idx + 1] - 1;
 	}

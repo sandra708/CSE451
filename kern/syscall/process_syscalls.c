@@ -27,41 +27,21 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _SYSCALL_H_
-#define _SYSCALL_H_
+#include <types.h>
+#include <current.h>
+#include <proc.h>
+#include <syscall.h>
 
+int sys_getpid(void){
+	struct proc *cur = curproc;
 
-#include <cdefs.h> /* for __DEAD */
-struct trapframe; /* from <machine/trapframe.h> */
+	if(cur == NULL){
+		panic("User processes must always have a process control block.");
+	}
 
-/*
- * The system call dispatcher.
- */
+	lock_acquire(curproc->lock);
+	int pid = curproc->pid;
+	lock_release(curproc->lock);
 
-void syscall(struct trapframe *tf);
-
-/*
- * Support functions.
- */
-
-/* Helper for fork(). You write this. */
-void enter_forked_process(struct trapframe *tf);
-
-/* Enter user mode. Does not return. */
-__DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
-		       vaddr_t stackptr, vaddr_t entrypoint);
-
-
-/*
- * Prototypes for IN-KERNEL entry points for system call implementations.
- */
-
-int sys_reboot(int code);
-int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
-
-/*
- * Process-related syscalls
-*/
-int sys_getpid(void);
-
-#endif /* _SYSCALL_H_ */
+	return pid;
+}

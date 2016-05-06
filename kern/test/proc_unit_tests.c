@@ -6,10 +6,9 @@ Unit tests for multi-process support.
 
 #include <types.h>
 #include <current.h>
-#include <proc.h>
-#include <pid.h>
 #include <limits.h>
 #include <thread.h>
+#include <proc.h>
 
 int test_processes(int nargs, char** args);
 void test_pid_tree(void);
