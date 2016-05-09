@@ -64,5 +64,6 @@ int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 */
 int sys_getpid(void);
 int sys_execv(const char *program, char **args);
+void sys__exit(int exitcode);
 
 #endif /* _SYSCALL_H_ */

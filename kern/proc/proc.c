@@ -54,11 +54,6 @@
  */
 struct proc *kproc;
 
-/* 
- * The process directory, which matches process ids to processes. 
- */
-struct pid_tree *pids;
-
 /*
  * Create a proc structure.
  */

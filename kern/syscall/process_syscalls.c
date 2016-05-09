@@ -34,15 +34,29 @@
 
 int sys_getpid(void){
 	struct proc *cur = curproc;
-	struct pid_tree *pid_dir = pids;
 
 	if(cur == NULL){
 		panic("User processes must always have a process control block.");
 	}
 
-	lock_acquire(pid_dir->lock);
+	pid_acquire_lock(pids);
 	int pid = curproc->pid;
-	lock_release(pid_dir->lock);
+	pid_release_lock(pids);
 
 	return pid;
+}
+
+void sys__exit(int exitcode){
+	struct thread *cur = curthread;
+
+	pid_acquire_lock(pids);
+	// TODO: lock file-table
+
+	proc_exit(cur->t_proc, exitcode);
+
+	pid_release_lock(pids);
+
+	thread_exit();
+
+	panic("SYS__exit should not return!!! braaaiiiinnnsss");
 }

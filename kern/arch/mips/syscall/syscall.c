@@ -111,7 +111,16 @@ syscall(struct trapframe *tf)
 
 	    /* Add stuff here */
 	    case SYS_getpid:
-		err = sys_getpid();
+	    /* limit.h limits possible pids to within a 32-bit address space */
+		retval = (int32_t) sys_getpid();
+		err = 0;
+		break;
+
+		case SYS__exit:
+		/* TODO: the exitcode? 32 bit? 64 bit? */
+		sys__exit(tf->tf_a0);
+		/* if we are here, something terrible happened */
+		err = ENOSYS;
 		break;
 
 	    default:
