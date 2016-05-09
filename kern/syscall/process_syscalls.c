@@ -34,14 +34,15 @@
 
 int sys_getpid(void){
 	struct proc *cur = curproc;
+	struct pid_tree *pid_dir = pids;
 
 	if(cur == NULL){
 		panic("User processes must always have a process control block.");
 	}
 
-	lock_acquire(curproc->lock);
+	lock_acquire(pid_dir->lock);
 	int pid = curproc->pid;
-	lock_release(curproc->lock);
+	lock_release(pid_dir->lock);
 
 	return pid;
 }

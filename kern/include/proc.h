@@ -36,13 +36,20 @@
  * Note: curproc is defined by <current.h>.
  */
 
+#include <types.h>
 #include <spinlock.h>
 #include <synch.h>
 #include <pid.h>
+#include <list.h>
 
 struct addrspace;
 struct thread;
 struct vnode;
+
+/* 
+ * The process directory, which matches process ids to processes. 
+ */
+struct pid_tree *pids;
 
 /*
  * Process structure.
@@ -74,14 +81,15 @@ struct proc {
 
 	/* User-process fields */
 
-	struct lock *lock;		/* Sleeplock to proctect the parent/child statuses */
-
 	int pid;			/* the process id for this process */
 	int parent;			/* the process id for the parent's process (if any) (-1 if none) */
 	int waitpid;			/* the process id being waited for, if any (-1 if none) */
 
-	int *children;			/* the process ids for the children of this process (if any) */
-	int num_children;		/* the number of children stored at the given array*/
+	struct cv *wait;			/* parent waits on their own cv (child signals as it exits) */
+
+	struct list *children; /* the process ids for the children of this process (if any) */
+
+	struct list *files;		/* the file descriptors for this process's open files */
 
 	int exit_val;			/* value that this process exited with (if it has exited) */
 	bool exited;			/* whether the process has exited */
@@ -95,6 +103,12 @@ void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
+
+/* Original destructor code; detatches and cleans up OS161-provided fields*/
+void proc_detatch(struct proc *proc);
+
+/* Exits from a process, including detatching from open files and orphaning child processes */
+void proc_exit(struct proc *proc, int exitcode);
 
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);

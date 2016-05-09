@@ -43,9 +43,9 @@
  */
 
 #include <types.h>
-#include <current.h>
 #include <spl.h>
 #include <proc.h>
+#include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
 
@@ -87,30 +87,36 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
-	/* User-process fields */
-	proc->lock = lock_create("PCB LOCK");
-	if(proc->lock == NULL){
+	proc->children = list_create();
+	if(proc->children == NULL){
 		kfree(proc->p_name);
 		kfree(proc);
 		return NULL;
 	}
 
-	/* We will instantiate this array if and when this process has at least one child */
-	proc->children = NULL;
-	proc->num_children = 0;
+	proc->files = list_create();
+	if(proc->files == NULL){
+		list_destroy(proc->children);
+		kfree(proc->p_name);
+		kfree(proc);
+		return NULL;
+	}
 	
-	// Should be only the bootstrapping kernel process
+	
 	if(pids == NULL){
+		// Should be only the bootstrapping kernel process
 		pids = pid_create_tree(proc);
 		proc->pid = 0;
 	} else {
+		// Assign a pid and add to directory tree
 		pid_acquire_lock(pids);
 		proc->pid = pid_allocate(pids, proc);
 		if(proc->pid < 0){
+			list_destroy(proc->children);
+			list_destroy(proc->files);
 			kfree(proc->p_name);
-			kfree(proc->lock);
-			kfree(proc->children);
 			kfree(proc);
+			pid_release_lock(pids);
 			return NULL;
 		}
 		pid_release_lock(pids);
@@ -131,7 +137,7 @@ proc_create(const char *name)
  * probably want to do so.
  */
 void
-proc_destroy(struct proc *proc)
+proc_detatch(struct proc *proc)
 {
 	/*
 	 * You probably want to destroy and null out much of the
@@ -206,29 +212,83 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
+}
 
-	/* Acquire the process directory tree lock */
-	pid_acquire_lock(pids);
+/* 
+	Exits the process, destroying all non-essentials, but leaves the 
+	structure behind if waitpid() might need to access it.
+
+	Also detatches from open files and orphans (destroying if necessary)
+	any child processes. 
+*/
+void 
+proc_exit(struct proc *proc, int exitcode)
+{
+	/* First, detatch */
+	proc->p_numthreads = 0;
+	proc_detatch(proc);
 	
-	/* TODO: Release children from obligations */
+	/* orphan children */
+	int *childpid = list_front(proc->children);
+	while(childpid != NULL){
+		struct proc *child = pid_get_proc(pids, *childpid);
+		if(child != NULL){
+			KASSERT(child->pid == *childpid);
 
-	/* Destroy data structures */
-	lock_destroy(proc->lock);
+			if(child->exited){
+				// child is exited, will now never be joined
+				proc_destroy(child);
+			} else{
+				// orphan a running child
+				child->parent = -1;
+			}
+		}
 
-	if(proc->children != NULL){
-		kfree(proc->children);
+		// advance through list, freeing memory as we go
+		list_pop_front(proc->children);
+		kfree(childpid);
+		childpid = list_front(proc->children);
 	}
 
+	// actually destroy the list
+	list_destroy(proc->children);
+
+	/* TODO: detatch files */
+	list_destroy(proc->files);
+
+	if(proc->parent == -1){
+		// process is already orphaned
+		proc_destroy(proc);
+		return;
+	} 
+
+	struct proc *parent = pid_get_proc(pids, proc->parent);
+	if(parent == NULL){
+		// parent process could not be found
+		proc_destroy(proc);
+		return;
+	}
+
+	// now we have an existing parent, so we can't simply destroy everything ...
+
+	if(parent->waitpid == proc->pid){
+		cv_broadcast(parent->wait, pids->lock);
+	}
+
+	/* Set internal exit data */
 	proc->exited = true;
+	proc->exit_val = exitcode;
 
-	/* TODO: Only free if we can exit immediately; otherwise, wait */
+	return;
+}
 
+/* Final destroyer; internal pointers should be freed/detatched already */
+void 
+proc_destroy(struct proc *proc)
+{
 	pid_remove_proc(pids, proc->pid);
 	kfree(proc->p_name);
 	kfree(proc);
-
-	/* Release process directory tree lock */
-	pid_release_lock(pids);
 }
 
 /*
