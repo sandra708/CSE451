@@ -383,6 +383,7 @@ file      syscall/loadelf.c
 file      syscall/runprogram.c
 file      syscall/time_syscalls.c
 file	  syscall/process_syscalls.c
+file	  syscall/execv.c
 
 #
 # Startup and initialization
@@ -459,4 +460,5 @@ file		test/fstest.c
 file		test/synchdet.c
 file		test/asst1_tests.c
 file 		test/proc_unit_tests.c
+file		test/execv_unit_tests.c
 optfile net	test/nettest.c

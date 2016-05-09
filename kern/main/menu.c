@@ -631,7 +631,8 @@ static struct {
 	{ "a1a",	asst1_tests },
 
 	/* Assignment 2 unit tests */
-	{ "proc1", test_processes }, 
+	{ "proc1", test_processes },
+	{ "execv1", test_execv }, 
 
 	/* file system assignment tests */
 	{ "fs1",	fstest },
