@@ -12,15 +12,50 @@ Unit tests for multi-process support.
 
 int test_processes(int nargs, char** args);
 void test_pid_tree(void);
+int thread_helper(void *data, unsigned long num);
+
 void verify_subtree_counts(struct pid_tree *tree);
 void verify_ordering(struct pid_tree *tree);
 void verify_number(struct pid_tree *tree, int goal);
-int thread_helper(void *data, unsigned long num);
 int get_max(struct pid_tree *tree);
 int get_min(struct pid_tree *tree);
 
+int test__exit(int nargs, char** args);
+
+int test_exit_child_first(void);
+int test_exit_parent_first(void);
+
+void verify_proc(struct pid_tree *pids, struct proc *proc);
+void verify_all_procs(struct pid_tree *tree);
+
 struct pid_tree *tree;
 
+int test__exit(int nargs, char** args){
+	(void) nargs;
+	(void) args;
+
+	// since methods are embedded, this HAS to modify and test against the live pid directory
+
+	// verify the tree of live processes (!) 
+	pid_acquire_lock(pids);
+	verify_all_procs(pids);
+	pid_release_lock(pids);
+
+	kprintf("The live process tree verified as correct.\n");
+
+	// verify the live kproc (!)
+	pid_acquire_lock(pids);
+	verify_proc(pids, kproc);
+	pid_release_lock(pids);
+
+	kprintf("The live kernel process verified as correct.\n");
+
+	test_exit_child_first();
+
+	test_exit_parent_first();
+
+	return 0;
+}
 
 int test_processes(int nargs, char** args){
 	(void) nargs;
@@ -115,7 +150,7 @@ void test_pid_tree(void){
 	kprintf("Removing the initial kernel process at pre-determined pid = 0 succeeds.\n");
 
 	KASSERT(pid_destroy_tree(tree));
-
+	tree = NULL;
 }
 
 int thread_helper(void *data, unsigned long num){
@@ -246,5 +281,180 @@ void verify_ordering(struct pid_tree *tree){
 				}
 			}
 		}
+	}
+}
+
+int test_exit_child_first(){
+
+	// initialize 2 PCBs
+	struct proc *parent = proc_create_runprogram("PARENT:UNITTEST");
+	struct proc *child = proc_create_runprogram("CHILD:UNITTEST");
+
+	KASSERT(child->parent == -1);
+	KASSERT(parent->parent == -1);
+
+	// assign as parent and child
+	int parent_pid = parent->pid;
+	int child_pid = child->pid;
+
+	child->parent = parent_pid;
+	int *node = kmalloc(sizeof(node));
+	*node = child_pid;
+	list_push_back(parent->children, node);
+
+	// child exits
+	pid_acquire_lock(pids);
+	proc_exit(child, 1);
+
+	verify_all_procs(pids);
+	pid_release_lock(pids);
+
+	pid_acquire_lock(pids);
+	struct proc *remain = pid_get_proc(pids, *node);
+	KASSERT(remain == child);
+	KASSERT(child->exit_val == 1);
+	pid_release_lock(pids);
+
+	kprintf("Child exiting before parent remains in existence with correctly stored exit value.\n");
+
+	// parent exits
+	pid_acquire_lock(pids);
+
+	proc_exit(parent, 1);
+	verify_all_procs(pids);
+
+	remain = pid_get_proc(pids, parent_pid);
+	KASSERT(remain == NULL);
+
+	kprintf("Orphan process exiting is fully destroyed.\n");
+
+	remain = pid_get_proc(pids, child_pid);
+	KASSERT(remain == NULL);
+
+	kprintf("Parent exiting cleans up previously-exited child.\n");
+
+	// the node pointer should have been freed by the parent's exit
+
+	pid_release_lock(pids);
+
+	return 0;
+}
+
+int test_exit_parent_first(){
+
+	// initialize 2 PCBs
+	struct proc *parent = proc_create_runprogram("PARENT:UNITTEST");
+	struct proc *child = proc_create_runprogram("CHILD:UNITTEST");
+
+	KASSERT(child->parent == -1);
+	KASSERT(parent->parent == -1);
+
+	// assign as parent and child
+	int parent_pid = parent->pid;
+	int child_pid = child->pid;
+
+	child->parent = parent_pid;
+	int *node = kmalloc(sizeof(node));
+	*node = child_pid;
+	list_push_back(parent->children, node);
+
+
+	// parent exits
+	pid_acquire_lock(pids);
+
+	verify_all_procs(pids);
+
+	proc_exit(parent, 1);
+
+	// since we are still in the lock, the pid is NOT reassigned yet
+	struct proc *remain = pid_get_proc(pids, parent_pid);
+	KASSERT(remain == NULL);
+
+	KASSERT(child->parent == -1);
+
+	verify_all_procs(pids);
+
+	pid_release_lock(pids);
+
+	kprintf("Parent exiting first successfully orphans child.\n");
+
+	// child exits
+	pid_acquire_lock(pids);
+	verify_all_procs(pids);
+
+	remain = pid_get_proc(pids, child_pid);
+
+	KASSERT(remain == child);
+
+	proc_exit(child, 1);
+
+	// since we are still in the lock, the pid is NOT reassigned yet
+	remain = pid_get_proc(pids, child_pid);
+	KASSERT(remain == NULL);
+
+	verify_all_procs(pids);
+	pid_release_lock(pids);
+
+	kprintf("Newly orphaned child ceases to exist on exit.\n");
+
+	return 0;
+}
+
+void verify_all_procs(struct pid_tree *pids){
+	if(pids == NULL){
+		return;
+	}
+
+	struct pid_tree *root = pids;
+	while(root->parent != NULL){
+		root = root->parent;
+	}
+
+	for(int i = 0; i < PID_DIR_SIZE; i++){
+		if(pids->local_procs[i] != NULL){
+			verify_proc(root, pids->local_procs[i]);
+		}
+		verify_all_procs(pids->subtrees[i]);
+	}
+}
+
+void verify_proc(struct pid_tree *pids, struct proc *proc){
+	KASSERT(pids != NULL);
+	KASSERT(proc != NULL);
+
+	KASSERT(proc->pid == 0 || (proc->pid >= PID_MIN && proc->pid <= PID_MAX));
+	KASSERT(proc->parent == -1 || proc->parent == 0 || (proc->parent >= PID_MIN && proc->parent <= PID_MAX));
+	KASSERT(proc->waitpid == -1 || (proc->waitpid >= PID_MIN && proc->waitpid <= PID_MAX));
+
+	if(proc->exited){
+		// exited; most data structures already destroyed
+		KASSERT(proc->parent != -1);
+		KASSERT(proc->waitpid == -1);
+		KASSERT(proc->pid != 0);
+
+		KASSERT(proc->children == NULL);
+		KASSERT(proc->files == NULL);
+		KASSERT(proc->wait == NULL);
+
+		KASSERT(proc->p_addrspace == NULL);
+		KASSERT(proc->p_cwd == NULL);
+	} else {
+		// running;
+		KASSERT(proc->exit_val == 0);
+		list_assertvalid(proc->children);
+		list_assertvalid(proc->files);
+		// not much we can do to check validity of cv, addrspace, vnode
+	}
+
+	if(proc->parent != -1){
+		struct proc *parent = pid_get_proc(pids, proc->parent);
+		KASSERT(parent != NULL);
+		// check this pid represented among parent's children
+	}
+
+	if(proc->waitpid != -1){
+		struct proc *wait = pid_get_proc(pids, proc->waitpid);
+		KASSERT(wait != NULL);
+		KASSERT(wait->parent == proc->pid);
 	}
 }

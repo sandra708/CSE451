@@ -54,6 +54,13 @@
  */
 struct proc *kproc;
 
+
+/* Destroy a process. */
+void proc_destroy(struct proc *proc);
+
+/* Original destructor code; detatches and cleans up OS161-provided fields*/
+void proc_detatch(struct proc *proc);
+
 /*
  * Create a proc structure.
  */
@@ -96,6 +103,15 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+
+	proc->wait = cv_create("PROC WAITPID CV");
+	if(proc->wait == NULL){
+		list_destroy(proc->files);
+		list_destroy(proc->children);
+		kfree(proc->p_name);
+		kfree(proc);
+		return NULL;
+	}
 	
 	
 	if(pids == NULL){
@@ -107,6 +123,7 @@ proc_create(const char *name)
 		pid_acquire_lock(pids);
 		proc->pid = pid_allocate(pids, proc);
 		if(proc->pid < 0){
+			cv_destroy(proc->wait);
 			list_destroy(proc->children);
 			list_destroy(proc->files);
 			kfree(proc->p_name);
@@ -247,9 +264,15 @@ proc_exit(struct proc *proc, int exitcode)
 
 	// actually destroy the list
 	list_destroy(proc->children);
+	proc->children = NULL;
 
 	/* TODO: detatch files */
 	list_destroy(proc->files);
+	proc->files = NULL;
+
+	/* destroy own cv */
+	cv_destroy(proc->wait);
+	proc->wait = NULL;
 
 	if(proc->parent == -1){
 		// process is already orphaned
@@ -266,13 +289,13 @@ proc_exit(struct proc *proc, int exitcode)
 
 	// now we have an existing parent, so we can't simply destroy everything ...
 
-	if(parent->waitpid == proc->pid){
-		cv_broadcast(parent->wait, pids->lock);
-	}
-
 	/* Set internal exit data */
 	proc->exited = true;
 	proc->exit_val = exitcode;
+
+	if(parent->waitpid == proc->pid){
+		cv_broadcast(parent->wait, pids->lock);
+	}
 
 	return;
 }

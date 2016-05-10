@@ -128,7 +128,9 @@ common_prog(int nargs, char **args)
 			args /* thread arg */, nargs /* thread arg */);
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
-		proc_destroy(proc);
+		pid_acquire_lock(pids);
+		proc_exit(proc, 0);
+		pid_release_lock(pids);
 		return result;
 	}
 
@@ -490,7 +492,8 @@ static const char *testmenu[] = {
 	"[fs5] FS long stress                ",
 	"[fs6] FS create stress              ",
 	"[a1a] Assignment 1 test suite 			 ",
-	"[proc1] Assignment 2 process tests 	",
+	"[proc1] Assignment 2 process directory 	",
+	"[proc2] Assignment 2 _exit syscall  		",
 	NULL
 };
 
@@ -633,6 +636,7 @@ static struct {
 	/* Assignment 2 unit tests */
 	{ "proc1", test_processes },
 	{ "execv1", test_execv }, 
+	{ "proc2", test__exit },
 
 	/* file system assignment tests */
 	{ "fs1",	fstest },

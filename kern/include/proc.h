@@ -104,14 +104,8 @@ void proc_bootstrap(void);
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
 
-/* Original destructor code; detatches and cleans up OS161-provided fields*/
-void proc_detatch(struct proc *proc);
-
 /* Exits from a process, including detatching from open files and orphaning child processes */
 void proc_exit(struct proc *proc, int exitcode);
-
-/* Destroy a process. */
-void proc_destroy(struct proc *proc);
 
 /* Attach a thread to a process. Must not already have a process. */
 int proc_addthread(struct proc *proc, struct thread *t);
