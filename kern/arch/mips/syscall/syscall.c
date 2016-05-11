@@ -116,11 +116,15 @@ syscall(struct trapframe *tf)
 		err = 0;
 		break;
 
-		case SYS__exit:
+	    case SYS__exit:
 		/* TODO: the exitcode? 32 bit? 64 bit? */
 		sys__exit(tf->tf_a0);
 		/* if we are here, something terrible happened */
-		err = ENOSYS;
+		err = EINVAL;
+		break;
+
+	    case SYS_fork:
+		retval = (int32_t) sys_fork(tf, &err);
 		break;
 
 	    default:
@@ -170,4 +174,79 @@ void
 enter_forked_process(struct trapframe *tf)
 {
 	(void)tf;
+}
+
+int
+wrap_forked_process(void *data, unsigned long num)
+{
+	(void) num;
+	struct trapframe tf;
+	trapframe_copyinto((struct trapframe *) data, &tf);
+	kfree(data);
+
+	enter_forked_process(&tf);
+
+	/* should not return */
+	return 0;
+}
+
+int
+trapframe_copy(struct trapframe *orig, struct trapframe **copy)
+{
+	*copy = kmalloc(sizeof(**copy));
+	if(*copy == NULL){
+		return 1;
+	}
+	trapframe_copyinto(orig, *copy);
+	return 0;
+}
+
+void 
+trapframe_copyinto(struct trapframe *orig, struct trapframe *copy)
+{
+	copy->tf_vaddr = orig->tf_vaddr;	/* coprocessor 0 vaddr register */
+	copy->tf_status = orig->tf_status;	/* coprocessor 0 status register */
+	copy->tf_cause = orig->tf_cause;	/* coprocessor 0 cause register */
+
+	copy->tf_lo = orig->tf_lo;
+	copy->tf_hi = orig->tf_hi;
+	copy->tf_ra = orig->tf_ra;		/* Saved register 31 */
+	copy->tf_at = orig->tf_at;		/* Saved register 1 (AT) */
+
+	copy->tf_v0 = orig->tf_v0;		/* Saved register 2 (v0) */
+	copy->tf_v1 = orig->tf_v1;		/* etc. */
+
+	copy->tf_a0 = orig->tf_a0;
+	copy->tf_a1 = orig->tf_a1;
+	copy->tf_a2 = orig->tf_a2;
+	copy->tf_a3 = orig->tf_a3;
+
+	copy->tf_t0 = orig->tf_t0;
+	copy->tf_t1 = orig->tf_t1;
+	copy->tf_t2 = orig->tf_t2;
+	copy->tf_t3 = orig->tf_t3;
+	copy->tf_t4 = orig->tf_t4;
+	copy->tf_t5 = orig->tf_t5;
+	copy->tf_t6 = orig->tf_t6;
+	copy->tf_t7 = orig->tf_t7;
+
+	copy->tf_s0 = orig->tf_s0;
+	copy->tf_s1 = orig->tf_s1;
+	copy->tf_s2 = orig->tf_s2;
+	copy->tf_s3 = orig->tf_s3;
+	copy->tf_s4 = orig->tf_s4;
+	copy->tf_s5 = orig->tf_s5;
+	copy->tf_s6 = orig->tf_s6;
+	copy->tf_s7 = orig->tf_s7;
+
+	copy->tf_t8 = orig->tf_t8;
+	copy->tf_t9 = orig->tf_t9;
+
+	copy->tf_k0 = orig->tf_k0;		/* dummy (see exception-mips1.S comments) */
+	copy->tf_k1 = orig->tf_k1;		/* dummy */
+	
+	copy->tf_gp = orig->tf_gp;
+	copy->tf_sp = orig->tf_sp;
+	copy->tf_s8 = orig->tf_s8;
+	copy->tf_epc = orig->tf_epc;	/* coprocessor 0 epc register */
 }

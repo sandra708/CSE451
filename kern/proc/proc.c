@@ -43,6 +43,7 @@
  */
 
 #include <types.h>
+#include <kern/errno.h>
 #include <spl.h>
 #include <proc.h>
 #include <current.h>
@@ -66,16 +67,18 @@ void proc_detatch(struct proc *proc);
  */
 static
 struct proc *
-proc_create(const char *name)
+proc_create(const char *name, int *error)
 {
 	struct proc *proc;
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
+		*error = ENOMEM;
 		return NULL;
 	}
 	proc->p_name = kstrdup(name);
 	if (proc->p_name == NULL) {
+		*error = ENOMEM;
 		kfree(proc);
 		return NULL;
 	}
@@ -91,6 +94,7 @@ proc_create(const char *name)
 
 	proc->children = list_create();
 	if(proc->children == NULL){
+		*error = ENOMEM;
 		kfree(proc->p_name);
 		kfree(proc);
 		return NULL;
@@ -98,6 +102,7 @@ proc_create(const char *name)
 
 	proc->files = list_create();
 	if(proc->files == NULL){
+		*error = ENOMEM;
 		list_destroy(proc->children);
 		kfree(proc->p_name);
 		kfree(proc);
@@ -106,6 +111,7 @@ proc_create(const char *name)
 
 	proc->wait = cv_create("PROC WAITPID CV");
 	if(proc->wait == NULL){
+		*error = ENOMEM;
 		list_destroy(proc->files);
 		list_destroy(proc->children);
 		kfree(proc->p_name);
@@ -122,6 +128,7 @@ proc_create(const char *name)
 		// Assign a pid and add to directory tree
 		proc->pid = pid_allocate(pids, proc);
 		if(proc->pid < 0){
+			*error = ENPROC;
 			cv_destroy(proc->wait);
 			list_destroy(proc->children);
 			list_destroy(proc->files);
@@ -234,7 +241,6 @@ void
 proc_exit(struct proc *proc, int exitcode)
 {
 	/* First, detatch */
-	proc->p_numthreads = 0;
 	proc_detatch(proc);
 	
 	/* orphan children */
@@ -312,8 +318,9 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
-	kproc = proc_create("[kernel]");
-	if (kproc == NULL || pids == NULL) {
+	int err = 0;
+	kproc = proc_create("[kernel]", &err);
+	if (kproc == NULL || pids == NULL || err != 0) {
 		panic("proc_create for kproc failed\n");
 	}
 }
@@ -325,11 +332,11 @@ proc_bootstrap(void)
  * process's (that is, the kernel menu's) current directory.
  */
 struct proc *
-proc_create_runprogram(const char *name)
+proc_create_runprogram(const char *name, int *error)
 {
 	struct proc *newproc;
 
-	newproc = proc_create(name);
+	newproc = proc_create(name, error);
 	if (newproc == NULL) {
 		return NULL;
 	}
@@ -356,10 +363,10 @@ proc_create_runprogram(const char *name)
 }
 
 struct proc *
-proc_create_fork(const char *name, struct proc *parent){
+proc_create_fork(const char *name, struct proc *parent, int *error){
 	struct proc *proc;
 
-	proc = proc_create(name);
+	proc = proc_create(name, error);
 	if(proc == NULL){
 		return NULL;
 	}
@@ -373,14 +380,16 @@ proc_create_fork(const char *name, struct proc *parent){
 	// set parent and child relationship
 	int *pid = kmalloc(sizeof(pid));
 	if(pid == NULL){
+		*error = ENOMEM;
 		proc_exit(proc, 0);
 		return NULL;
 	}
+
 	*pid = proc->pid;
 	list_push_back(parent->children, pid);
 	proc->parent = parent->pid;
 
-	return NULL;
+	return proc;
 }
 
 /*
@@ -436,6 +445,50 @@ proc_remthread(struct thread *t)
 	spl = splhigh();
 	t->t_proc = NULL;
 	splx(spl);
+}
+
+/* Adds a file descriptor to the list of open files. 
+ * Returns 0 on success or an error.
+ */
+int 
+proc_addfile(struct proc *proc, int fd)
+{
+	if(list_getsize(proc->files) >= OPEN_MAX){
+		return EMFILE;
+	}
+	int *node = kmalloc(sizeof(int));
+	if(node == NULL){
+		return ENOMEM;
+	}
+	*node = fd;
+	int err = list_push_back(proc->files, node);
+	return err;
+}
+
+void 
+proc_remfile(struct proc *proc, int fd)
+{
+	if(list_isempty(proc->files)){
+		return;
+	}
+
+	int *first = list_front(proc->files);
+	list_pop_front(proc->files);
+	if(*first == fd || list_isempty(proc->files)){
+		return;
+	}
+
+	// rotate through the list until we find the head again, or find the fd
+	list_push_back(proc->files, first);
+	int *cur = list_front(proc->files);
+	while(*cur != *first){
+		list_pop_front(proc->files);
+		if(*cur == fd){
+			return;
+		}
+		list_push_back(proc->files, cur);
+		cur = list_front(proc->files);
+	}
 }
 
 /*

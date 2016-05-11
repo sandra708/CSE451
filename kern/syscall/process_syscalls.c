@@ -29,6 +29,7 @@
 
 #include <types.h>
 #include <current.h>
+#include <kern/errno.h>
 #include <proc.h>
 #include <syscall.h>
 
@@ -46,19 +47,35 @@ int sys_getpid(void){
 	return pid;
 }
 
-int sys_fork(void){
+int sys_fork(struct trapframe *tf, int *error){
 	struct thread *cur = curthread;
 
 	pid_acquire_lock(pids);
 
-	// fork the process control block
-	struct proc *newproc = proc_create_fork("PCB FORK", cur->t_proc);
+	int err = 0;
 
-	// fork the underlying kernel thread
-	//struct thread *newthread = thread_copy("TCB FORK", cur, newproc);
+	// fork the process control block
+	struct proc *newproc = proc_create_fork("PCB FORK", cur->t_proc, &err);
+	if(err){
+		*error = err;
+		return -1;
+	}
+
+	// copy the trapframe to the kernel heap
+	struct trapframe* onheap;
+	err = trapframe_copy(tf, &onheap);
+	if(err){
+		*error = ENOMEM;
+		proc_exit(newproc, 0);
+		return -1;
+	}
+
+	// fork the new thread for the new process
+	thread_fork("SYSCALL FORK", newproc, wrap_forked_process, onheap, 0);
 
 	pid_release_lock(pids);
 
+	*error = 0;
 	return newproc->pid;
 }
 
@@ -67,6 +84,8 @@ void sys__exit(int exitcode){
 
 	pid_acquire_lock(pids);
 	// TODO: lock file-table
+
+	proc_remthread(cur);
 
 	proc_exit(cur->t_proc, exitcode);
 

@@ -285,10 +285,14 @@ void verify_ordering(struct pid_tree *tree){
 }
 
 int test_exit_child_first(){
+	int err = 0;
 
 	// initialize 2 PCBs
-	struct proc *parent = proc_create_runprogram("PARENT:UNITTEST");
-	struct proc *child = proc_create_runprogram("CHILD:UNITTEST");
+	struct proc *parent = proc_create_runprogram("PARENT:UNITTEST", &err);
+	KASSERT(err == 0);
+
+	struct proc *child = proc_create_runprogram("CHILD:UNITTEST", &err);
+	KASSERT(err == 0);
 
 	KASSERT(child->parent == -1);
 	KASSERT(parent->parent == -1);
@@ -341,10 +345,14 @@ int test_exit_child_first(){
 }
 
 int test_exit_parent_first(){
+	int err = 0;
 
 	// initialize 2 PCBs
-	struct proc *parent = proc_create_runprogram("PARENT:UNITTEST");
-	struct proc *child = proc_create_runprogram("CHILD:UNITTEST");
+	struct proc *parent = proc_create_runprogram("PARENT:UNITTEST", &err);
+	KASSERT(err == 0);
+
+	struct proc *child = proc_create_runprogram("CHILD:UNITTEST", &err);
+	KASSERT(err == 0);
 
 	KASSERT(child->parent == -1);
 	KASSERT(parent->parent == -1);

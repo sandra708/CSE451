@@ -89,7 +89,7 @@ struct proc {
 
 	struct list *children; /* the process ids for the children of this process (if any) */
 
-	struct list *files;		/* the file descriptors for this process's open files */
+	struct list *files;		/* the file descriptors for this process's open files (no duplicates!) */
 
 	int exit_val;			/* value that this process exited with (if it has exited) */
 	bool exited;			/* whether the process has exited */
@@ -102,10 +102,10 @@ extern struct proc *kproc;
 void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
-struct proc *proc_create_runprogram(const char *name);
+struct proc *proc_create_runprogram(const char *name, int *error);
 
 /* Fork a fresh process from an existing process */
-struct proc *proc_create_fork(const char *name, struct proc *parent);
+struct proc *proc_create_fork(const char *name, struct proc *parent, int *error);
 
 /* Exits from a process, including detatching from open files and orphaning child processes */
 void proc_exit(struct proc *proc, int exitcode);
@@ -115,6 +115,12 @@ int proc_addthread(struct proc *proc, struct thread *t);
 
 /* Detach a thread from its process. */
 void proc_remthread(struct thread *t);
+
+/* Adds the given file descriptor to the process's list of open files */
+int proc_addfile(struct proc *proc, int fd);
+
+/* Removes the given file descriptor from the process's list of open files */
+void proc_remfile(struct proc *proc, int fd);
 
 /* Fetch the address space of the current process. */
 struct addrspace *proc_getas(void);
