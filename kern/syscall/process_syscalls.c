@@ -46,6 +46,22 @@ int sys_getpid(void){
 	return pid;
 }
 
+int sys_fork(void){
+	struct thread *cur = curthread;
+
+	pid_acquire_lock(pids);
+
+	// fork the process control block
+	struct proc *newproc = proc_create_fork("PCB FORK", cur->t_proc);
+
+	// fork the underlying kernel thread
+	//struct thread *newthread = thread_copy("TCB FORK", cur, newproc);
+
+	pid_release_lock(pids);
+
+	return newproc->pid;
+}
+
 void sys__exit(int exitcode){
 	struct thread *cur = curthread;
 

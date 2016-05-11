@@ -63,6 +63,7 @@ int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
  * Process-related syscalls
 */
 int sys_getpid(void);
+int sys_fork(void);
 int sys_execv(const char *program, char **args);
 void sys__exit(int exitcode);
 

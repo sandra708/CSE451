@@ -117,7 +117,10 @@ common_prog(int nargs, char **args)
 	int result;
 
 	/* Create a process for the new program to run in. */
+	pid_acquire_lock(pids);
 	proc = proc_create_runprogram(args[0] /* name */);
+	pid_release_lock(pids);
+
 	if (proc == NULL) {
 		return ENOMEM;
 	}

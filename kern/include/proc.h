@@ -104,6 +104,9 @@ void proc_bootstrap(void);
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
 
+/* Fork a fresh process from an existing process */
+struct proc *proc_create_fork(const char *name, struct proc *parent);
+
 /* Exits from a process, including detatching from open files and orphaning child processes */
 void proc_exit(struct proc *proc, int exitcode);
 

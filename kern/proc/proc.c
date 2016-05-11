@@ -120,7 +120,6 @@ proc_create(const char *name)
 		proc->pid = 0;
 	} else {
 		// Assign a pid and add to directory tree
-		pid_acquire_lock(pids);
 		proc->pid = pid_allocate(pids, proc);
 		if(proc->pid < 0){
 			cv_destroy(proc->wait);
@@ -128,10 +127,8 @@ proc_create(const char *name)
 			list_destroy(proc->files);
 			kfree(proc->p_name);
 			kfree(proc);
-			pid_release_lock(pids);
 			return NULL;
 		}
-		pid_release_lock(pids);
 	}
 
 	proc->parent = -1;
@@ -356,6 +353,34 @@ proc_create_runprogram(const char *name)
 	spinlock_release(&curproc->p_lock);
 
 	return newproc;
+}
+
+struct proc *
+proc_create_fork(const char *name, struct proc *parent){
+	struct proc *proc;
+
+	proc = proc_create(name);
+	if(proc == NULL){
+		return NULL;
+	}
+
+	// VM - copy the address space from the parent
+	as_copy(parent->p_addrspace, &proc->p_addrspace);
+
+	// copy the current working directory
+	proc->p_cwd = parent->p_cwd;
+
+	// set parent and child relationship
+	int *pid = kmalloc(sizeof(pid));
+	if(pid == NULL){
+		proc_exit(proc, 0);
+		return NULL;
+	}
+	*pid = proc->pid;
+	list_push_back(parent->children, pid);
+	proc->parent = parent->pid;
+
+	return NULL;
 }
 
 /*
