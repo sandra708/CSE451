@@ -66,6 +66,9 @@ typedef enum {
 	S_ZOMBIE,	/* zombie; exited but not yet deleted */
 } threadstate_t;
 
+struct lock *execv_lock;
+
+
 /* Thread structure. */
 struct thread {
 	/*

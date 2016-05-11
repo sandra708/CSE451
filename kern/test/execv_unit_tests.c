@@ -12,24 +12,24 @@ void test_non_valid_directories(void);
 void test_program_does_not_exist(void);
 void test_pass_directory_in(void);
 void test_non_executable_program(void);
-void test_bad_argument_pointer(void);
+void test_null_parameters(void);
 
 
 int test_execv(int nargs, char** args) {
         (void) nargs;
         (void) args;
+	test_null_parameters();
         test_arg_string_too_big();
         test_non_valid_directories();
         test_program_does_not_exist();
         test_pass_directory_in();
         test_non_executable_program();
-        test_bad_argument_pointer();
         return 0;
 }
 
 void test_arg_string_too_big() {
 	kprintf("Passing in too large of arg string into execv\n");
-	KASSERT(true);
+	KASSERT(false);
 }
 
 void test_non_valid_directories() {
@@ -75,9 +75,22 @@ void test_non_executable_program() {
 	KASSERT(false);
 }
 
-void test_bad_argument_pointer() {
-	kprintf("Passing a bad argument pointer into execv\n");
-	KASSERT(false);
+void test_null_parameters() {
+	kprintf("Passing null into execv\n");
+	int retval;
+
+	retval = sys_execv(NULL, NULL);
+	KASSERT(retval == EFAULT);
+
+	const char* directory = "/testbin/"; // some valid directory
+	char* args[2];
+	args[0] = (char*) directory;
+	
+	retval = sys_execv(directory, NULL);
+	KASSERT(retval == EFAULT);
+	
+	retval = sys_execv(NULL, args);
+	KASSERT(retval == EFAULT);
 }
 
 

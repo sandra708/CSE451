@@ -395,7 +395,13 @@ thread_bootstrap(void)
 	KASSERT(curthread != NULL);
 	KASSERT(curthread->t_proc != NULL);
 	KASSERT(curthread->t_proc == kproc);
+	
 
+	/* Initialize the global execv lock, panic if it fails to initialize */
+	execv_lock = lock_create("execv lock");
+	if(execv_lock == NULL) {
+		panic("failed to create execv lock in thread_bootstrap");
+	}
 	/* Done */
 }
 
