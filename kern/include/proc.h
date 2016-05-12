@@ -110,6 +110,9 @@ struct proc *proc_create_fork(const char *name, struct proc *parent, int *error)
 /* Exits from a process, including detatching from open files and orphaning child processes */
 void proc_exit(struct proc *proc, int exitcode);
 
+/* Destroys the remnant of an exited process */
+void proc_destroy(struct proc *proc);
+
 /* Attach a thread to a process. Must not already have a process. */
 int proc_addthread(struct proc *proc, struct thread *t);
 

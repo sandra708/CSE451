@@ -127,6 +127,10 @@ syscall(struct trapframe *tf)
 		retval = (int32_t) sys_fork(tf, &err);
 		break;
 
+	    case SYS_waitpid:
+		err = sys_waitpid(tf->tf_a0, (userptr_t) tf->tf_a1, tf->tf_a2);
+		retval = tf->tf_a0; /* we return the user-supplied pid*/
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
@@ -173,7 +177,7 @@ syscall(struct trapframe *tf)
 void
 enter_forked_process(struct trapframe *tf)
 {
-	(void)tf;
+	mips_usermode(tf);
 }
 
 int
@@ -183,6 +187,11 @@ wrap_forked_process(void *data, unsigned long num)
 	struct trapframe tf;
 	trapframe_copyinto((struct trapframe *) data, &tf);
 	kfree(data);
+
+	/* set values for the "return" from syscall which is actually a teleport */
+	tf.tf_v0 = 0;
+	tf.tf_a3 = 0;
+	tf.tf_epc += 4;
 
 	enter_forked_process(&tf);
 

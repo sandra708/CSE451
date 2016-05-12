@@ -31,6 +31,7 @@
 #include <current.h>
 #include <kern/errno.h>
 #include <proc.h>
+#include <copyinout.h>
 #include <syscall.h>
 
 int sys_getpid(void){
@@ -77,6 +78,53 @@ int sys_fork(struct trapframe *tf, int *error){
 
 	*error = 0;
 	return newproc->pid;
+}
+
+int sys_waitpid(int pid, userptr_t status, int options){
+	struct proc *cur = curproc;
+	int err = 0;
+
+	pid_acquire_lock(pids);
+
+	// check that the options are valid
+	if(options != 0){
+		return EINVAL;
+	}
+
+	// check that the status is a valid pointer
+	int test = 0;
+	if(status != NULL){
+		err = copyin(status, &test, sizeof(int));
+		if(err){
+			return err;
+		}
+	}
+
+	struct proc *child = pid_get_proc(pids, pid);
+	if(child == NULL){
+		return ESRCH;
+	}
+
+	if(child->parent != cur->pid){
+		return ECHILD;
+	}
+
+	while(!child->exited){
+		cv_wait(cur->wait, pids->lock);
+	}
+
+	// copy out the exit val
+	if(status != NULL){
+		int exit_val = child->exit_val;
+		err = copyout(&exit_val, status, sizeof(int));
+	}
+
+	// clean up the child process
+	proc_destroy(child);
+
+	pid_release_lock(pids);
+
+	return err;
 }
 
 void sys__exit(int exitcode){

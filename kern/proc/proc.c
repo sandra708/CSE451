@@ -55,10 +55,6 @@
  */
 struct proc *kproc;
 
-
-/* Destroy a process. */
-void proc_destroy(struct proc *proc);
-
 /* Original destructor code; detatches and cleans up OS161-provided fields*/
 void proc_detatch(struct proc *proc);
 
