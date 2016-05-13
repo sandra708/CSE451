@@ -116,7 +116,9 @@ int asst1_tests(int, char **);
 
 /* Assignment 2 Multi-process unit tests */
 int test_processes(int, char**);
+int test_fork(int, char**);
 int test_execv(int, char**);
+int test_wait(int, char**);
 int test__exit(int, char**);
 
 /* Routine for running a user-level program. */

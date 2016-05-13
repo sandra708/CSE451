@@ -368,10 +368,19 @@ proc_create_fork(const char *name, struct proc *parent, int *error){
 	}
 
 	// VM - copy the address space from the parent
-	as_copy(parent->p_addrspace, &proc->p_addrspace);
+
+	spinlock_acquire(&parent->p_lock);
+	struct addrspace *space = parent->p_addrspace;
+	spinlock_release(&parent->p_lock);
+
+	if(space != NULL){
+		as_copy(space, &proc->p_addrspace);
+	}
 
 	// copy the current working directory
+	spinlock_acquire(&parent->p_lock);
 	proc->p_cwd = parent->p_cwd;
+	spinlock_release(&parent->p_lock);
 
 	// set parent and child relationship
 	int *pid = kmalloc(sizeof(pid));

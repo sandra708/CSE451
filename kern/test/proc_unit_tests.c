@@ -6,9 +6,13 @@ Unit tests for multi-process support.
 
 #include <types.h>
 #include <current.h>
+#include <kern/errno.h>
 #include <limits.h>
+#include <clock.h>
 #include <thread.h>
 #include <proc.h>
+#include <syscall.h>
+#include <../arch/mips/include/trapframe.h>
 
 int test_processes(int nargs, char** args);
 void test_pid_tree(void);
@@ -28,7 +32,43 @@ int test_exit_parent_first(void);
 void verify_proc(struct pid_tree *pids, struct proc *proc);
 void verify_all_procs(struct pid_tree *tree);
 
+int test_fork(int nargs, char** args);
+void fork_pcb(void);
+void fork_from_kernel(void);
+
+int test_wait(int nargs, char** args);
+
+void wait_for_non_child(void);
+void wait_for_non_exist(void);
+void bad_options(void);
+void bad_status_fail_fast(void);
+void run_waitpid(void);
+int wait_parent_thread(void *data, unsigned long num);
+int wait_child_thread(void *data, unsigned long num);
+
 struct pid_tree *tree;
+
+int test_wait(int nargs, char** args){
+	(void) nargs;
+	(void) args;
+
+	wait_for_non_exist();
+	wait_for_non_child();
+	bad_options();
+	bad_status_fail_fast();
+	run_waitpid();
+
+	return 0;
+}
+
+int test_fork(int nargs, char** args){
+	(void) nargs;
+	(void) args;
+	fork_pcb();
+	fork_from_kernel();
+
+	return 0;
+}
 
 int test__exit(int nargs, char** args){
 	(void) nargs;
@@ -53,6 +93,12 @@ int test__exit(int nargs, char** args){
 	test_exit_child_first();
 
 	test_exit_parent_first();
+
+	KASSERT(curproc->pid == 0);
+
+	kprintf("This test should now crash ...\n");
+
+	sys__exit(0);
 
 	return 0;
 }
@@ -465,4 +511,227 @@ void verify_proc(struct pid_tree *pids, struct proc *proc){
 		KASSERT(wait != NULL);
 		KASSERT(wait->parent == proc->pid);
 	}
+}
+
+void fork_pcb(void){
+
+	pid_acquire_lock(pids);
+
+	int err = 0;
+	struct proc *parent = proc_create_runprogram("UNITTEST:PARENT", &err);
+	KASSERT(err == 0);
+
+	struct proc *child = proc_create_fork("UNITTEST:CHILD", parent, &err);
+
+	pid_release_lock(pids);
+
+	KASSERT(err == 0);
+	KASSERT(child->parent == parent->pid);
+	KASSERT(!list_isempty(parent->children));
+	KASSERT(list_getsize(parent->children) == 1);
+	int *pid = list_front(parent->children);
+	KASSERT(*pid == child->pid);
+
+	KASSERT(child->p_cwd == parent->p_cwd);
+	// how to assert about the address space contents?
+
+	KASSERT(list_isempty(child->files));
+	KASSERT(list_isempty(child->children));
+	KASSERT(child->exited == false);
+	KASSERT(child->waitpid == -1);
+	// can't assert that a cv is empty?
+
+	// clean up memory
+	proc_exit(child, 0);
+	proc_exit(parent, 0);
+
+	kprintf("Successfully forked a child PCB from the parent.\n");
+}
+
+void fork_from_kernel(void){
+	kprintf("This is a handle for gdb, rather than a unit-test proper, since the trapframe is bogus.\n");
+	kprintf("This test should crash.\n");
+
+	int err = 0;
+	struct trapframe *tf;
+	tf = kmalloc(sizeof(*tf));
+	int pid = sys_fork(tf, &err);
+	if(pid == 0){
+		kprintf("Successfully emerged into the child process!\n");
+		sys__exit(0);
+	} else if(pid == -1){
+		kprintf("Error!\n");
+	} else{
+		kprintf("Successfully returned from fork().\n");
+	}
+	kfree(tf);
+}
+
+void wait_for_non_child(void){
+	kprintf("Attempting to wait for a non-child; expecting error.\n");
+
+	struct thread *cur = curthread;
+
+	int err = 0;
+	pid_acquire_lock(pids);
+	struct proc *proc = proc_create_runprogram("PROC:TEST", &err);
+	pid_release_lock(pids);
+	KASSERT(err == 0);
+	KASSERT(proc->exited == false);
+	KASSERT(proc->parent != cur->t_proc->pid);
+
+	err = sys_waitpid(proc->pid, NULL, 0);
+	KASSERT(err == ECHILD);
+
+	proc_exit(proc, 0);
+
+	kprintf("... Passed.\n");
+}
+
+void wait_for_non_exist(void){
+	kprintf("Attempting to wait for a non-existant process; expecting error.\n");
+
+	int err = 0;
+	int pid = 4095; /* A pid which is assigned later; we guess it is & remains un-used. */
+
+	pid_acquire_lock(pids);
+	struct proc *proc = pid_get_proc(pids, pid);
+	KASSERT(proc == NULL);
+	pid_release_lock(pids);
+
+	err = sys_waitpid(pid, NULL, 0);
+	KASSERT(err == ESRCH);
+
+	kprintf("... Passed.\n");
+}
+
+void bad_options(void){
+	kprintf("Attempting to wait using bad options; expecting error.\n");
+
+	int err = 0;
+	pid_acquire_lock(pids);
+	struct proc *proc = proc_create_runprogram("PROC:TEST", &err);
+	pid_release_lock(pids);
+	KASSERT(err == 0);
+	KASSERT(proc->exited == false);
+
+	for(int i = 1; i < 4096; i += 3){
+		err = sys_waitpid(proc->pid, NULL, i);
+		KASSERT(err == EINVAL);
+	}
+
+	proc_exit(proc, 0);
+
+
+	kprintf("... Passed.\n");
+}
+
+void bad_status_fail_fast(void){
+	kprintf("Attempting to wait using a bad status pointer; expecting error.\n");
+
+	int err = 0;
+	pid_acquire_lock(pids);
+	struct proc *proc = proc_create_runprogram("PROC:TEST", &err);
+	pid_release_lock(pids);
+	KASSERT(err == 0);
+	KASSERT(proc->exited == false);
+
+	err = sys_waitpid(proc->pid, (userptr_t) 1, 0);
+	KASSERT(err == EFAULT);
+
+	proc_exit(proc, 0);
+
+
+	kprintf("... Passed.\n");
+}
+
+void run_waitpid(void){
+	const int num_parent_threads = 8;
+	
+	struct proc *proc = curproc;
+
+	int err = 0;
+
+	int pid_id[num_parent_threads];
+	
+	for(int i = 0; i < num_parent_threads; i++){
+		pid_acquire_lock(pids);
+		struct proc *child = proc_create_fork("UNITTEST:PARENT", proc, &err);
+		KASSERT(err == 0); 
+		pid_id[i] = child->pid;
+		verify_ordering(pids);
+		thread_fork("UNITTEST", NULL, wait_parent_thread, NULL, pid_id[i]);
+		pid_release_lock(pids);
+	}
+
+	int retvals[num_parent_threads];
+	for(int i = 0; i < num_parent_threads; i++){
+		retvals[i] = -1;
+	}
+	
+	for(int i = 0; i < num_parent_threads; i++){
+		sys_waitpid(pid_id[i], (userptr_t) &retvals[i], 0);
+		KASSERT(retvals[i] == pid_id[i]);
+		KASSERT(list_getsize(proc->children) == (unsigned) (num_parent_threads - i)); 
+	}
+
+	pid_acquire_lock(pids);
+	verify_number(pids, 0);
+	pid_release_lock(pids);
+}
+
+int wait_parent_thread(void *data, unsigned long num){
+	(void) data;
+
+	const int num_child_threads = 127;
+	int err = 0;
+
+	pid_acquire_lock(pids);
+	struct proc *parent = pid_get_proc(pids, num);
+	pid_release_lock(pids);
+
+	int pid_id[num_child_threads];
+	
+	for(int i = 0; i < num_child_threads; i++){
+		pid_acquire_lock(pids);
+		verify_ordering(pids);
+		struct proc *child = proc_create_fork("UNITTEST:CHILD", parent, &err);
+		KASSERT(err == 0); 
+		pid_id[i] = child->pid;
+		thread_fork("UNITTEST:CHILD", NULL, wait_child_thread, NULL, pid_id[i]);
+		pid_release_lock(pids);
+	}
+
+	int retvals[num_child_threads];
+	for(int i = 0; i < num_child_threads; i++){
+		retvals[i] = -1;
+	}
+	
+	for(int i = 0; i < num_child_threads; i++){
+		sys_waitpid(pid_id[i], (userptr_t) &retvals[i], 0);
+		KASSERT(retvals[i] == pid_id[i]);
+		KASSERT(list_getsize(parent->children) == (unsigned) (num_child_threads - i)); 
+	}
+
+	proc_exit(parent, parent->pid);
+
+	return 0;
+}
+
+int wait_child_thread(void *data, unsigned long num){
+	(void) data;
+
+	// sleep anywhere from 0 to 4 seconds
+	clocksleep(num % 5);
+
+	pid_acquire_lock(pids);
+	struct proc *proc = pid_get_proc(pids, num);
+	KASSERT(proc != NULL);
+	KASSERT(proc->exited == false);
+
+	proc_exit(proc, num);
+
+	pid_release_lock(pids);
+
+	return 0;
 }

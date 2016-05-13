@@ -498,6 +498,8 @@ static const char *testmenu[] = {
 	"[a1a] Assignment 1 test suite 			 ",
 	"[proc1] Assignment 2 process directory 	",
 	"[proc2] Assignment 2 _exit syscall  		",
+	"[proc3] Assignment 2 fork 			",
+	"[proc4] Assignment 2 waitpid		", 
 	"[execv1] Assignment 2 execv",
 	NULL
 };
@@ -642,6 +644,8 @@ static struct {
 	{ "proc1", test_processes },
 	{ "execv1", test_execv }, 
 	{ "proc2", test__exit },
+	{ "proc3", test_fork },
+	{ "proc4", test_wait },
 
 	/* file system assignment tests */
 	{ "fs1",	fstest },

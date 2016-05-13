@@ -32,6 +32,7 @@
 #include <kern/errno.h>
 #include <proc.h>
 #include <copyinout.h>
+#include <addrspace.h>
 #include <syscall.h>
 
 int sys_getpid(void){
@@ -46,6 +47,15 @@ int sys_getpid(void){
 	pid_release_lock(pids);
 
 	return pid;
+}
+
+static 
+int wrap_forked_process(void *data, unsigned long num){
+	(void) num;
+	as_activate();
+	enter_forked_process((struct trapframe *) data);
+	/* should not return */
+	return EINVAL;
 }
 
 int sys_fork(struct trapframe *tf, int *error){
@@ -72,7 +82,7 @@ int sys_fork(struct trapframe *tf, int *error){
 	}
 
 	// fork the new thread for the new process
-	thread_fork("SYSCALL FORK", newproc, wrap_forked_process, onheap, 0);
+	thread_fork("TCB FORK", newproc, wrap_forked_process, onheap, 0);
 
 	pid_release_lock(pids);
 
@@ -88,6 +98,7 @@ int sys_waitpid(int pid, userptr_t status, int options){
 
 	// check that the options are valid
 	if(options != 0){
+		pid_release_lock(pids);
 		return EINVAL;
 	}
 
@@ -96,16 +107,19 @@ int sys_waitpid(int pid, userptr_t status, int options){
 	if(status != NULL){
 		err = copyin(status, &test, sizeof(int));
 		if(err){
+			pid_release_lock(pids);
 			return err;
 		}
 	}
 
 	struct proc *child = pid_get_proc(pids, pid);
 	if(child == NULL){
+		pid_release_lock(pids);
 		return ESRCH;
 	}
 
 	if(child->parent != cur->pid){
+		pid_release_lock(pids);
 		return ECHILD;
 	}
 
@@ -133,9 +147,11 @@ void sys__exit(int exitcode){
 	pid_acquire_lock(pids);
 	// TODO: lock file-table
 
+	struct proc *proc = cur->t_proc;
+	
 	proc_remthread(cur);
 
-	proc_exit(cur->t_proc, exitcode);
+	proc_exit(proc, exitcode);
 
 	pid_release_lock(pids);
 

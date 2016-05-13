@@ -175,28 +175,23 @@ syscall(struct trapframe *tf)
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(struct trapframe *tf)
+enter_forked_process(struct trapframe *data)
 {
-	mips_usermode(tf);
-}
-
-int
-wrap_forked_process(void *data, unsigned long num)
-{
-	(void) num;
 	struct trapframe tf;
-	trapframe_copyinto((struct trapframe *) data, &tf);
+	trapframe_copyinto(data, &tf);
 	kfree(data);
 
-	/* set values for the "return" from syscall which is actually a teleport */
+	/* set values for the teleport which mimic returning from a syscall */
 	tf.tf_v0 = 0;
 	tf.tf_a3 = 0;
 	tf.tf_epc += 4;
 
-	enter_forked_process(&tf);
+	/* Make sure the syscall code didn't forget to lower spl */
+	KASSERT(curthread->t_curspl == 0);
+	/* ...or leak any spinlocks */
+	KASSERT(curthread->t_iplhigh_count == 0);
 
-	/* should not return */
-	return 0;
+	mips_usermode(&tf);
 }
 
 int
