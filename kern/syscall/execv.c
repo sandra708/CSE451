@@ -102,7 +102,7 @@ int sys_execv(const char* program_name, char** args) {
 	kargs[argc] = NULL; //null terminate kernel args
 
 	/* RunProgram code here for opening file, and creating address space */
-	retval = vfs_open(program_name, O_RDONLY, 0, &v);
+	retval = vfs_open((char*)program_name, O_RDONLY, 0, &v);
 	if(retval) {
 		for(j = 0; j < argc; j++)
 			kfree(kargs[j]);
@@ -123,7 +123,6 @@ int sys_execv(const char* program_name, char** args) {
 		return ENOMEM;
 	}
 
-	KASSERT(proc_getas() == null);
 	proc_setas(as);
 	as_activate();
 
