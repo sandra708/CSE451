@@ -123,9 +123,15 @@ int sys_waitpid(int pid, userptr_t status, int options){
 		return ECHILD;
 	}
 
+	/* indicate which child we are waiting on */
+	cur->waitpid = pid;
+
 	while(!child->exited){
 		cv_wait(cur->wait, pids->lock);
 	}
+
+	// no longer waiting
+	cur->waitpid = -1;
 
 	// copy out the exit val
 	if(status != NULL){
@@ -135,6 +141,9 @@ int sys_waitpid(int pid, userptr_t status, int options){
 
 	// clean up the child process
 	proc_destroy(child);
+
+	// remove reference from our children list
+	proc_remchild(cur, pid);
 
 	pid_release_lock(pids);
 

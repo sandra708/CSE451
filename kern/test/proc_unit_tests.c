@@ -285,11 +285,13 @@ int get_max(struct pid_tree *tree){
 		return -1;
 	}
 
-	for(int i = PID_DIR_SIZE -1; i >= 0; i++){
-		if(get_max(tree->subtrees[i]) > -1){
-			return get_max(tree->subtrees[i]);
-		} else if(tree->local_pids[i] != -1){
-			return tree->local_pids[i];
+	for(int i = PID_DIR_SIZE -1; i >= 0; i--){
+		if(tree->subtrees[i] != NULL){
+			if(get_max(tree->subtrees[i]) > -1){
+				return get_max(tree->subtrees[i]);
+			} else if(tree->local_pids[i] != -1){
+				return tree->local_pids[i];
+			}
 		}
 	}
 
@@ -646,7 +648,9 @@ void bad_status_fail_fast(void){
 }
 
 void run_waitpid(void){
-	const int num_parent_threads = 8;
+	kprintf("Testing waitpid() in a multi-threaded environment.\n");	
+
+	const int num_parent_threads = 3;
 	
 	struct proc *proc = curproc;
 
@@ -660,30 +664,37 @@ void run_waitpid(void){
 		KASSERT(err == 0); 
 		pid_id[i] = child->pid;
 		verify_ordering(pids);
-		thread_fork("UNITTEST", NULL, wait_parent_thread, NULL, pid_id[i]);
+		thread_fork("UNITTEST", child, wait_parent_thread, NULL, pid_id[i]);
 		pid_release_lock(pids);
-	}
-
-	int retvals[num_parent_threads];
-	for(int i = 0; i < num_parent_threads; i++){
-		retvals[i] = -1;
 	}
 	
 	for(int i = 0; i < num_parent_threads; i++){
-		sys_waitpid(pid_id[i], (userptr_t) &retvals[i], 0);
-		KASSERT(retvals[i] == pid_id[i]);
-		KASSERT(list_getsize(proc->children) == (unsigned) (num_parent_threads - i)); 
+		err = sys_waitpid(pid_id[i], NULL, 0);
+		if(err){
+			kprintf("Error %d in run_waitpid test.\n", err);
+		}else{
+			kprintf("Master thread waited for parent %d.\n",  pid_id[i]); 
+		}
+		KASSERT(err == 0);
+		KASSERT(list_getsize(proc->children) == (unsigned) (num_parent_threads - i - 1)); 
+		pid_acquire_lock(pids);
+		verify_ordering(pids);
+		struct proc *child = pid_get_proc(pids, pid_id[i]);
+		KASSERT(child == NULL || child->parent != proc->pid);
+		pid_release_lock(pids);
 	}
 
 	pid_acquire_lock(pids);
-	verify_number(pids, 0);
+	//verify_number(pids, 1); /* kproc is the only active process */
 	pid_release_lock(pids);
+	kprintf("...Passed.\n");
 }
 
 int wait_parent_thread(void *data, unsigned long num){
+	kprintf("Parent thread %lu starting.\n", num);
 	(void) data;
 
-	const int num_child_threads = 127;
+	const int num_child_threads = 5;
 	int err = 0;
 
 	pid_acquire_lock(pids);
@@ -698,22 +709,29 @@ int wait_parent_thread(void *data, unsigned long num){
 		struct proc *child = proc_create_fork("UNITTEST:CHILD", parent, &err);
 		KASSERT(err == 0); 
 		pid_id[i] = child->pid;
-		thread_fork("UNITTEST:CHILD", NULL, wait_child_thread, NULL, pid_id[i]);
+		thread_fork("UNITTEST:CHILD", child, wait_child_thread, NULL, pid_id[i]);
 		pid_release_lock(pids);
-	}
-
-	int retvals[num_child_threads];
-	for(int i = 0; i < num_child_threads; i++){
-		retvals[i] = -1;
 	}
 	
 	for(int i = 0; i < num_child_threads; i++){
-		sys_waitpid(pid_id[i], (userptr_t) &retvals[i], 0);
-		KASSERT(retvals[i] == pid_id[i]);
-		KASSERT(list_getsize(parent->children) == (unsigned) (num_child_threads - i)); 
+		err = sys_waitpid(pid_id[i], NULL,  0);
+		if(err){
+			kprintf("Error %d in wait_parent.\n", err);
+		} else{
+			kprintf("Parent thread %lu waited for child %d.\n", num, pid_id[i]);
+		}
+		KASSERT(err == 0);
+		KASSERT(list_getsize(parent->children) == (unsigned) (num_child_threads - i - 1)); 
+		pid_acquire_lock(pids);
+		struct proc *child = pid_get_proc(pids, pid_id[i]);
+		KASSERT(child == NULL || child->parent != parent->pid);
+		verify_ordering(pids);
+		pid_release_lock(pids);
 	}
 
-	proc_exit(parent, parent->pid);
+	sys__exit(parent->pid);
+
+	kprintf("Parent thread %lu finished.\n", num);
 
 	return 0;
 }
@@ -721,17 +739,15 @@ int wait_parent_thread(void *data, unsigned long num){
 int wait_child_thread(void *data, unsigned long num){
 	(void) data;
 
+	//kprintf("Child thread %lu starting.\n", num);
+
 	// sleep anywhere from 0 to 4 seconds
 	clocksleep(num % 5);
 
-	pid_acquire_lock(pids);
-	struct proc *proc = pid_get_proc(pids, num);
-	KASSERT(proc != NULL);
-	KASSERT(proc->exited == false);
+	kprintf("Child thread %lu exiting.\n", num);
 
-	proc_exit(proc, num);
+	sys__exit(num);
 
-	pid_release_lock(pids);
-
+	// should not return
 	return 0;
 }

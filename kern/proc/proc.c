@@ -379,7 +379,10 @@ proc_create_fork(const char *name, struct proc *parent, int *error){
 
 	// copy the current working directory
 	spinlock_acquire(&parent->p_lock);
-	proc->p_cwd = parent->p_cwd;
+	if(parent->p_cwd != NULL){
+		VOP_INCREF(parent->p_cwd);
+		proc->p_cwd = parent->p_cwd;
+	}
 	spinlock_release(&parent->p_lock);
 
 	// set parent and child relationship
@@ -470,30 +473,41 @@ proc_addfile(struct proc *proc, int fd)
 	return err;
 }
 
+static
 void 
-proc_remfile(struct proc *proc, int fd)
+proc_remlist(struct list *list, int val)
 {
-	if(list_isempty(proc->files)){
+	if(list_isempty(list)){
 		return;
 	}
 
-	int *first = list_front(proc->files);
-	list_pop_front(proc->files);
-	if(*first == fd || list_isempty(proc->files)){
+	int *first = list_front(list);
+	list_pop_front(list);
+	if(*first == val || list_isempty(list)){
 		return;
 	}
 
 	// rotate through the list until we find the head again, or find the fd
-	list_push_back(proc->files, first);
-	int *cur = list_front(proc->files);
+	list_push_back(list, first);
+	int *cur = list_front(list);
 	while(*cur != *first){
-		list_pop_front(proc->files);
-		if(*cur == fd){
+		list_pop_front(list);
+		if(*cur == val){
 			return;
 		}
-		list_push_back(proc->files, cur);
-		cur = list_front(proc->files);
+		list_push_back(list, cur);
+		cur = list_front(list);
 	}
+}
+
+void
+proc_remfile(struct proc *proc, int fd){
+	proc_remlist(proc->files, fd);
+}
+
+void
+proc_remchild(struct proc *proc, int child){
+	proc_remlist(proc->children, child);
 }
 
 /*

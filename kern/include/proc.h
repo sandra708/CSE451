@@ -125,6 +125,9 @@ int proc_addfile(struct proc *proc, int fd);
 /* Removes the given file descriptor from the process's list of open files */
 void proc_remfile(struct proc *proc, int fd);
 
+/* Removes the given pid from the process's list of children */
+void proc_remchild(struct proc *proc, int child);
+
 /* Fetch the address space of the current process. */
 struct addrspace *proc_getas(void);
 
