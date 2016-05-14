@@ -498,7 +498,7 @@ void verify_proc(struct pid_tree *pids, struct proc *proc){
 		// running;
 		KASSERT(proc->exit_val == 0);
 		list_assertvalid(proc->children);
-		list_assertvalid(proc->files);
+		hashtable_assertvalid(proc->files);
 		// not much we can do to check validity of cv, addrspace, vnode
 	}
 
@@ -537,7 +537,7 @@ void fork_pcb(void){
 	KASSERT(child->p_cwd == parent->p_cwd);
 	// how to assert about the address space contents?
 
-	KASSERT(list_isempty(child->files));
+	KASSERT(hashtable_isempty(child->files));
 	KASSERT(list_isempty(child->children));
 	KASSERT(child->exited == false);
 	KASSERT(child->waitpid == -1);

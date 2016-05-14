@@ -96,7 +96,7 @@ proc_create(const char *name, int *error)
 		return NULL;
 	}
 
-	proc->files = list_create();
+	proc->files = hashtable_create();
 	if(proc->files == NULL){
 		*error = ENOMEM;
 		list_destroy(proc->children);
@@ -108,7 +108,7 @@ proc_create(const char *name, int *error)
 	proc->wait = cv_create("PROC WAITPID CV");
 	if(proc->wait == NULL){
 		*error = ENOMEM;
-		list_destroy(proc->files);
+		hashtable_destroy(proc->files);
 		list_destroy(proc->children);
 		kfree(proc->p_name);
 		kfree(proc);
@@ -127,7 +127,7 @@ proc_create(const char *name, int *error)
 			*error = ENPROC;
 			cv_destroy(proc->wait);
 			list_destroy(proc->children);
-			list_destroy(proc->files);
+			hashtable_destroy(proc->files);
 			kfree(proc->p_name);
 			kfree(proc);
 			return NULL;
@@ -138,6 +138,7 @@ proc_create(const char *name, int *error)
 	proc->waitpid = -1;
 	proc->exited = false;
 	proc->exit_val = 0;
+  proc->next_fd = 3;
 
 	return proc;
 }
@@ -266,7 +267,7 @@ proc_exit(struct proc *proc, int exitcode)
 	proc->children = NULL;
 
 	/* TODO: detatch files */
-	list_destroy(proc->files);
+	hashtable_destroy(proc->files);
 	proc->files = NULL;
 
 	/* destroy own cv */
@@ -455,13 +456,13 @@ proc_remthread(struct thread *t)
 	splx(spl);
 }
 
-/* Adds a file descriptor to the list of open files. 
+/* Adds a file descriptor to the table of open files. 
  * Returns 0 on success or an error.
  */
 int 
-proc_addfile(struct proc *proc, int fd)
+proc_addfile(struct proc *proc, int fd, void* controlblock)
 {
-	if(list_getsize(proc->files) >= OPEN_MAX){
+	if(hashtable_getsize(proc->files) >= OPEN_MAX){
 		return EMFILE;
 	}
 	int *node = kmalloc(sizeof(int));
@@ -469,7 +470,7 @@ proc_addfile(struct proc *proc, int fd)
 		return ENOMEM;
 	}
 	*node = fd;
-	int err = list_push_back(proc->files, node);
+	int err = hashtable_add(proc->files, (char *) node, 1, controlblock);
 	return err;
 }
 
@@ -502,7 +503,8 @@ proc_remlist(struct list *list, int val)
 
 void
 proc_remfile(struct proc *proc, int fd){
-	proc_remlist(proc->files, fd);
+  hashtable_remove(proc->files, (char *) fd, 1);
+	//proc_remlist(proc->files, fd);
 }
 
 void

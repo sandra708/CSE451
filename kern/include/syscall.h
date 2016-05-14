@@ -32,7 +32,15 @@
 
 
 #include <cdefs.h> /* for __DEAD */
+#include <types.h>
 struct trapframe; /* from <machine/trapframe.h> */
+
+typedef struct filecontrolblock
+{
+  struct vnode* node;
+  off_t offset;
+  int permissions;
+} fcblock;
 
 /*
  * The system call dispatcher.
@@ -68,6 +76,12 @@ int sys_getpid(void);
 int sys_fork(struct trapframe *tf, int *error);
 int sys_waitpid(int pid, userptr_t status, int options);
 int sys_execv(const char *program, char **args);
+
+int sys_open(const char *filename, int flags, int *error);
+ssize_t sys_read(int fd, void *buf, size_t buflen, int *error);
+ssize_t sys_write(int fd, const void *buf, size_t nbytes, int *error);
+int sys_close(int fd);
+
 void sys__exit(int exitcode);
 
 #endif /* _SYSCALL_H_ */

@@ -130,10 +130,28 @@ syscall(struct trapframe *tf)
 	    case SYS_waitpid:
 		err = sys_waitpid(tf->tf_a0, (userptr_t) tf->tf_a1, tf->tf_a2);
 		retval = tf->tf_a0; /* we return the user-supplied pid*/
-	    
+	    break;
 	    case SYS_execv:
 		err = sys_execv((const char*)tf->tf_a0, (char**)tf->tf_a1);
 		break;
+
+      case SYS_open:
+        retval = sys_open((const char*)tf->tf_a0, tf->tf_a1, &err);
+        break;
+
+      case SYS_read:
+        retval = sys_read(tf->tf_a0, (void*)tf->tf_a1, tf->tf_a2, &err);
+        break;
+      
+      case SYS_write:
+        retval = sys_write(tf->tf_a0, (const void*)tf->tf_a1, tf->tf_a2, &err);
+        break;
+      
+      case SYS_close:
+        err = sys_close(tf->tf_a0);
+        break;
+
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;

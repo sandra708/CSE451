@@ -41,6 +41,7 @@
 #include <synch.h>
 #include <pid.h>
 #include <list.h>
+#include <hashtable.h>
 
 struct addrspace;
 struct thread;
@@ -89,7 +90,9 @@ struct proc {
 
 	struct list *children; /* the process ids for the children of this process (if any) */
 
-	struct list *files;		/* the file descriptors for this process's open files (no duplicates!) */
+	struct hashtable *files;		/* the file descriptors for this process's open files (no duplicates!) */
+
+  int next_fd;
 
 	int exit_val;			/* value that this process exited with (if it has exited) */
 	bool exited;			/* whether the process has exited */
@@ -120,7 +123,7 @@ int proc_addthread(struct proc *proc, struct thread *t);
 void proc_remthread(struct thread *t);
 
 /* Adds the given file descriptor to the process's list of open files */
-int proc_addfile(struct proc *proc, int fd);
+int proc_addfile(struct proc *proc, int fd, void* controlblock);
 
 /* Removes the given file descriptor from the process's list of open files */
 void proc_remfile(struct proc *proc, int fd);
