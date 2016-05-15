@@ -87,8 +87,14 @@ ssize_t sys_read(int fd, void *buf, size_t buflen, int* error)
   struct iovec iov;
   struct uio reader;
   uio_kinit(&iov, &reader, buf, buflen, ctrl->offset, UIO_READ);
-  ssize_t result = VOP_READ(ctrl->node, &reader);
-  ctrl->offset += result;
+  int vop_result = VOP_READ(ctrl->node, &reader);
+  if (vop_result != 0)
+  {
+    *error = EIO;
+    return -1;
+  }
+  int result = reader.uio_offset - ctrl->offset;
+  ctrl->offset = reader.uio_offset;
   kprintf("Read complete!\n");
   return result;
 }
@@ -127,8 +133,14 @@ ssize_t sys_write(int fd, const void *buf, size_t nbytes, int* error)
   struct iovec iov;
   struct uio writer;
   uio_kinit(&iov, &writer, bufcpy, nbytes, ctrl->offset, UIO_WRITE);
-  ssize_t result = VOP_WRITE(ctrl->node, &writer);
-  ctrl->offset += result;
+  int vop_result = VOP_WRITE(ctrl->node, &writer);
+  if (vop_result != 0)
+  {
+    *error = EIO;
+    return -1;
+  }
+  int result = writer.uio_offset - ctrl->offset;
+  ctrl->offset = writer.uio_offset;
   kfree(bufcpy);
   kprintf("Write complete!\n");
   return result;
