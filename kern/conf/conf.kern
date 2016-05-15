@@ -462,4 +462,5 @@ file		test/synchdet.c
 file		test/asst1_tests.c
 file 		test/proc_unit_tests.c
 file		test/execv_unit_tests.c
+file    test/fd_unit_tests.c
 optfile net	test/nettest.c

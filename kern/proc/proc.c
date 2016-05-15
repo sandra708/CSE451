@@ -460,17 +460,13 @@ proc_remthread(struct thread *t)
  * Returns 0 on success or an error.
  */
 int 
-proc_addfile(struct proc *proc, int fd, void* controlblock)
+proc_addfile(struct proc *proc, char* fdkey, void* controlblock)
 {
 	if(hashtable_getsize(proc->files) >= OPEN_MAX){
 		return EMFILE;
 	}
-	int *node = kmalloc(sizeof(int));
-	if(node == NULL){
-		return ENOMEM;
-	}
-	*node = fd;
-	int err = hashtable_add(proc->files, (char *) node, 1, controlblock);
+	int err = hashtable_add(proc->files, fdkey, 1, controlblock);
+  kprintf("Added %p block as value in hashtable\n", controlblock);
 	return err;
 }
 

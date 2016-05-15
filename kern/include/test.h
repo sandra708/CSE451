@@ -120,6 +120,7 @@ int test_fork(int, char**);
 int test_execv(int, char**);
 int test_wait(int, char**);
 int test__exit(int, char**);
+int test_file_syscalls(int, char**);
 
 /* Routine for running a user-level program. */
 int runprogram(char *progname);

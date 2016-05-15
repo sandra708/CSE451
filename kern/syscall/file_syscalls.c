@@ -8,8 +8,27 @@
 #include <uio.h>
 #include <kern/iovec.h>
 
+static char* int_to_byte_string(int input)
+{
+  char* digits = kmalloc(21);
+  if (digits == NULL)
+  {
+    return NULL;
+  }
+  int digitcount = 0;
+  while(input > 0)
+  {
+    digits[digitcount] = input % 256;
+    input /= 256;
+    digitcount++;
+  }
+  digits[digitcount] = 0;
+  return digits;
+}
+
 int sys_open(const char *filename, int flags, int* error)
 {
+  kprintf("Starting open...\n");
   fcblock *ctrl = (fcblock*) 
         kmalloc(sizeof(fcblock));
   if (ctrl == NULL)
@@ -31,24 +50,30 @@ int sys_open(const char *filename, int flags, int* error)
 		panic("User processes must always have a process control block.");
 	}
   int fd = cur->next_fd;
-  int addresult = proc_addfile(cur, fd, ctrl);
+  char* fdkey = int_to_byte_string(fd);
+  int addresult = proc_addfile(cur, fdkey, ctrl);
   if (addresult != 0)
   {
     *error = addresult;
     return -1;
   }
   (cur->next_fd)++;
+  kprintf("Open complete!\n");
   return fd;
 }
 
 ssize_t sys_read(int fd, void *buf, size_t buflen, int* error)
 {
+  kprintf("Read started...\n");
   struct proc *cur = curproc;
+  
   if(cur == NULL)
   {
 		panic("User processes must always have a process control block.");
 	}
-  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, (char *) fd, 1);
+  char* fdkey = int_to_byte_string(fd);
+  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, fdkey, 1);
+  kfree(fdkey);
   if(ctrl == NULL)
   {
     *error = EBADF;
@@ -64,17 +89,24 @@ ssize_t sys_read(int fd, void *buf, size_t buflen, int* error)
   uio_kinit(&iov, &reader, buf, buflen, ctrl->offset, UIO_READ);
   ssize_t result = VOP_READ(ctrl->node, &reader);
   ctrl->offset += result;
+  kprintf("Read complete!\n");
   return result;
 }
 
 ssize_t sys_write(int fd, const void *buf, size_t nbytes, int* error)
 {
+  kprintf("Write started...\n");
   struct proc *cur = curproc;
+  kprintf("Found curproc...\n");
+  
   if(cur == NULL)
   {
 		panic("User processes must always have a process control block.");
 	}
-  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, (char *) fd, 1);
+  char* fdkey = int_to_byte_string(fd);
+  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, fdkey, 1);
+  kfree(fdkey);
+  kprintf("Hashtable lookup complete...\n");
   if(ctrl == NULL)
   {
     *error = EBADF;
@@ -98,22 +130,34 @@ ssize_t sys_write(int fd, const void *buf, size_t nbytes, int* error)
   ssize_t result = VOP_WRITE(ctrl->node, &writer);
   ctrl->offset += result;
   kfree(bufcpy);
+  kprintf("Write complete!\n");
   return result;
 }
 
 int sys_close(int fd)
 {
+  kprintf("Close started...\n");
   struct proc *cur = curproc;
+  
+  kprintf("Got curproc...\n");
   if(cur == NULL){
 		panic("User processes must always have a process control block.");
 	}
-  fcblock *ctrl = (fcblock*) hashtable_remove(cur->files, (char *) fd, 1);
+  int filescount = hashtable_getsize(cur->files);
+  hashtable_assertvalid(cur->files);
+  kprintf("Size: %d\n", filescount);
+  char* fdkey = int_to_byte_string(fd);
+  fcblock *ctrl = (fcblock*) hashtable_remove(cur->files, fdkey, 1);
+  kfree(fdkey);
+  kprintf("Got fcblock...\n");
   if (ctrl == NULL)
   {
+    kprintf("fcblock is NULL?\n");
     return EBADF;
   }
   vfs_close(ctrl->node);
   kfree(ctrl);
+  kprintf("Close complete!\n");
   return 0;
 }
 

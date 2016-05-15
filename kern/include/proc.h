@@ -123,7 +123,7 @@ int proc_addthread(struct proc *proc, struct thread *t);
 void proc_remthread(struct thread *t);
 
 /* Adds the given file descriptor to the process's list of open files */
-int proc_addfile(struct proc *proc, int fd, void* controlblock);
+int proc_addfile(struct proc *proc, char* fd, void* controlblock);
 
 /* Removes the given file descriptor from the process's list of open files */
 void proc_remfile(struct proc *proc, int fd);

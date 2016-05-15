@@ -249,6 +249,7 @@ hashtable_add(struct hashtable* h, char* key, unsigned int keylen, void* val)
 
     /* Append the new item to end of chain. */
     struct kv_pair* new_item = kv_create(key, keylen, val);
+    kprintf("Added to hashtable: key = %d\n", *key);
     if (new_item == NULL) {
         return ENOMEM;
     }
@@ -260,7 +261,7 @@ hashtable_add(struct hashtable* h, char* key, unsigned int keylen, void* val)
     if (!removed) {
         ++h->size;
     }
-
+    kprintf("Add successful!\n");
     return 0;
 }
 
@@ -337,18 +338,19 @@ hashtable_remove(struct hashtable* h, char* key, unsigned int keylen)
 {
     KASSERT(h != NULL);
     KASSERT_HASHTABLE(h);
-
+    kprintf("Removing from hashtable... key = %d\n", *key);
     /* Compute the hash to index into array. */
     int index = hash(key, keylen) % h->arraysize;
+    kprintf("Determined index...\n");
     struct list* chain = h->vals[index];
     KASSERT(chain != NULL);
-    
+    kprintf("Got chain...\n");
     /* Build a kv_pair object with the query key. */
     struct kv_pair query_item;
     query_item.datatype = KVTYPE;
     query_item.key = key;
     query_item.keylen = keylen;
-
+    kprintf("Built pair...\n");
     struct kv_pair* removed
         = (struct kv_pair*)list_remove(chain, &query_item, &key_comparator);
     if (removed == NULL) {
@@ -356,7 +358,7 @@ hashtable_remove(struct hashtable* h, char* key, unsigned int keylen)
         return NULL;
     }
     KASSERT_KV(removed);
-
+    kprintf("Removed a pair...\n");
     /* Key value pair removed. */
     --h->size;
     if (h->arraysize > MIN_SIZE &&
@@ -366,7 +368,7 @@ hashtable_remove(struct hashtable* h, char* key, unsigned int keylen)
     }
     void* res = removed->val;
     kfree(removed);
-    
+    kprintf("Remove complete!\n");
     return res;
 }
 
