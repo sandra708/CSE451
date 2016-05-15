@@ -44,11 +44,13 @@
 
 #include <types.h>
 #include <kern/errno.h>
+#include <kern/fcntl.h>
 #include <spl.h>
 #include <proc.h>
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <syscall.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -139,7 +141,9 @@ proc_create(const char *name, int *error)
 	proc->exited = false;
 	proc->exit_val = 0;
   proc->next_fd = 3;
-
+  //sys_open("con:", O_RDWR, error);
+  //sys_open("con:", O_RDWR, error);
+  //sys_open("con:", O_RDWR, error);
 	return proc;
 }
 
@@ -265,8 +269,13 @@ proc_exit(struct proc *proc, int exitcode)
 	// actually destroy the list
 	list_destroy(proc->children);
 	proc->children = NULL;
-
-	/* TODO: detatch files */
+  
+  // detach from files
+  int error;
+	for(int i = 3; i < proc->next_fd; i++)
+  {
+    sys_close(i, &error);
+  }
 	hashtable_destroy(proc->files);
 	proc->files = NULL;
 
@@ -466,7 +475,6 @@ proc_addfile(struct proc *proc, char* fdkey, void* controlblock)
 		return EMFILE;
 	}
 	int err = hashtable_add(proc->files, fdkey, 1, controlblock);
-  kprintf("Added %p block as value in hashtable\n", controlblock);
 	return err;
 }
 

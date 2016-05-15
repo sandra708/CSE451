@@ -80,7 +80,7 @@ int sys_execv(const char *program, char **args);
 int sys_open(const char *filename, int flags, int *error);
 ssize_t sys_read(int fd, void *buf, size_t buflen, int *error);
 ssize_t sys_write(int fd, const void *buf, size_t nbytes, int *error);
-int sys_close(int fd);
+int sys_close(int fd, int *error);
 
 void sys__exit(int exitcode);
 
