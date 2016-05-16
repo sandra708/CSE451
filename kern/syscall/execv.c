@@ -163,6 +163,7 @@ int sys_execv(const char* program_name, char** args) {
 		copyoutstr(kargs[i], (userptr_t) stackptr, arglen, &actual);
 	}
 
+	stackptr -= 4; //NULL
 	//copy pointers
 	for(i=argc-1; i >=0; i--) {
 		stackptr -= 4;
