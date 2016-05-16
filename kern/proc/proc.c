@@ -393,6 +393,10 @@ proc_create_fork(const char *name, struct proc *parent, int *error){
 		VOP_INCREF(parent->p_cwd);
 		proc->p_cwd = parent->p_cwd;
 	}
+  if(parent->files != NULL)
+  {
+    proc->files = parent->files;
+  }
 	spinlock_release(&parent->p_lock);
 
 	// set parent and child relationship
