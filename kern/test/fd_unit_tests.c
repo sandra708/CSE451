@@ -26,6 +26,7 @@ void test_faulty_read(void);
 void test_faulty_write(void);
 void test_write_closed_file(void);
 void test_open_nonexistent_file(void);
+void test_write_to_stdout(void);
 
 int test_file_syscalls(int nargs, char** args){
 	(void) nargs;
@@ -48,6 +49,8 @@ int test_file_syscalls(int nargs, char** args){
   kprintf("---Correctly refused to write closed file...\n");
   test_open_nonexistent_file();
   kprintf("---Correctly failed to open/close a nonexistent file...\n");
+  test_write_to_stdout();
+  ///kprintf("---Wrote to stdout...\n");
   kprintf("Tests passed!\n");
   return 0;
 }
@@ -170,5 +173,12 @@ void test_open_nonexistent_file()
   KASSERT(error == ENOENT);
   KASSERT(sys_close(fd, &error) == -1);
   KASSERT(error == EBADF);
+}
+
+void test_write_to_stdout()
+{
+  int error;
+  const char* testtext = "---Wrote to stdout...\n";
+  sys_write(1, testtext, 23, &error);
 }
   

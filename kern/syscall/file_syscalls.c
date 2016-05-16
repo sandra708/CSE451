@@ -73,8 +73,23 @@ ssize_t sys_read(int fd, void *buf, size_t buflen, int* error)
   kfree(fdkey);
   if(ctrl == NULL)
   {
-    *error = EBADF;
-    return -1;
+    if (fd < 3)
+    {
+      int last_fd = cur->next_fd;
+      cur->next_fd = 0;
+      sys_open("con:", O_RDWR, error);
+      sys_open("con:", O_RDWR, error);
+      sys_open("con:", O_RDWR, error);
+      cur->next_fd = last_fd;
+      fdkey = int_to_byte_string(fd);
+      ctrl = (fcblock*) hashtable_find(cur->files, fdkey, strlen(fdkey));
+      kfree(fdkey);
+    }
+    else
+    {
+      *error = EBADF;
+      return -1;
+    }
   }
   if(ctrl->permissions != O_RDONLY && ctrl->permissions != O_RDWR)
   {
@@ -108,8 +123,23 @@ ssize_t sys_write(int fd, const void *buf, size_t nbytes, int* error)
   kfree(fdkey);
   if(ctrl == NULL)
   {
-    *error = EBADF;
-    return -1;
+    if (fd < 3)
+    {
+      int last_fd = cur->next_fd;
+      cur->next_fd = 0;
+      sys_open("con:", O_RDWR, error);
+      sys_open("con:", O_RDWR, error);
+      sys_open("con:", O_RDWR, error);
+      cur->next_fd = last_fd;
+      fdkey = int_to_byte_string(fd);
+      ctrl = (fcblock*) hashtable_find(cur->files, fdkey, strlen(fdkey));
+      kfree(fdkey);
+    }
+    else
+    {
+      *error = EBADF;
+      return -1;
+    }
   }
   if(ctrl->permissions != O_WRONLY && ctrl->permissions != O_RDWR)
   {
