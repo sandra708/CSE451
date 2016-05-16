@@ -27,6 +27,7 @@ void test_faulty_write(void);
 void test_write_closed_file(void);
 void test_open_nonexistent_file(void);
 void test_write_to_stdout(void);
+void test_read_from_stdin(void);
 
 int test_file_syscalls(int nargs, char** args){
 	(void) nargs;
@@ -50,7 +51,7 @@ int test_file_syscalls(int nargs, char** args){
   test_open_nonexistent_file();
   kprintf("---Correctly failed to open/close a nonexistent file...\n");
   test_write_to_stdout();
-  ///kprintf("---Wrote to stdout...\n");
+  test_read_from_stdin();
   kprintf("Tests passed!\n");
   return 0;
 }
@@ -180,5 +181,18 @@ void test_write_to_stdout()
   int error;
   const char* testtext = "---Wrote to stdout...\n";
   sys_write(1, testtext, 23, &error);
+}
+
+void test_read_from_stdin()
+{
+  int error;
+  char buffer[10];
+  const char* reference = "test\n";
+  sys_write(1, "Type 'test' now:\n", 18, &error);
+  ssize_t sizeread = sys_read(0, buffer, 10, &error);
+  for(ssize_t i = 0; i < sizeread; i++)
+  {
+    KASSERT(buffer[i] == reference[i]);
+  }
 }
   
