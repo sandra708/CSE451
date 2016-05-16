@@ -362,6 +362,12 @@ proc_create_runprogram(const char *name, int *error)
 	}
 	spinlock_release(&curproc->p_lock);
 
+	// create the new process as a fork of kproc
+	newproc->parent = 0;
+	int *pid = kmalloc(sizeof(int));
+	*pid = newproc->pid;
+	list_push_back(kproc->children, pid); 
+
 	return newproc;
 }
 
