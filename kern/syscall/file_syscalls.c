@@ -174,8 +174,13 @@ int sys_close(int fd, int* error)
   if(cur == NULL){
 		panic("User processes must always have a process control block.");
 	}
+  return close_from_process(fd, error, cur);
+}
+
+int close_from_process(int fd, int *error, struct proc *p)
+{
   char* fdkey = int_to_byte_string(fd);
-  fcblock *ctrl = (fcblock*) hashtable_remove(cur->files, fdkey, strlen(fdkey));
+  fcblock *ctrl = (fcblock*) hashtable_remove(p->files, fdkey, strlen(fdkey));
   kfree(fdkey);
   if (ctrl == NULL)
   {

@@ -269,9 +269,9 @@ proc_exit(struct proc *proc, int exitcode)
   
   // detach from files
   int error;
-	for(int i = 3; i < proc->next_fd; i++)
+	for(int i = 0; i < proc->next_fd; i++)
   {
-    sys_close(i, &error);
+    close_from_process(i, &error, proc);
   }
 	hashtable_destroy(proc->files);
 	proc->files = NULL;

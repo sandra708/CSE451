@@ -33,6 +33,7 @@
 
 #include <cdefs.h> /* for __DEAD */
 #include <types.h>
+#include <proc.h>
 struct trapframe; /* from <machine/trapframe.h> */
 
 typedef struct filecontrolblock
@@ -81,6 +82,7 @@ int sys_open(const char *filename, int flags, int *error);
 ssize_t sys_read(int fd, void *buf, size_t buflen, int *error);
 ssize_t sys_write(int fd, const void *buf, size_t nbytes, int *error);
 int sys_close(int fd, int *error);
+int close_from_process(int fd, int *error, struct proc *p);
 
 char* int_to_byte_string(int input);
 
