@@ -8,7 +8,7 @@
 #include <uio.h>
 #include <kern/iovec.h>
 
-static char* int_to_byte_string(int input)
+char* int_to_byte_string(int input)
 {
   char* digits = kmalloc(21);
   if (digits == NULL)
@@ -69,7 +69,7 @@ ssize_t sys_read(int fd, void *buf, size_t buflen, int* error)
 		panic("User processes must always have a process control block.");
 	}
   char* fdkey = int_to_byte_string(fd);
-  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, fdkey, 1);
+  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, fdkey, strlen(fdkey));
   kfree(fdkey);
   if(ctrl == NULL)
   {
@@ -104,7 +104,7 @@ ssize_t sys_write(int fd, const void *buf, size_t nbytes, int* error)
 		panic("User processes must always have a process control block.");
 	}
   char* fdkey = int_to_byte_string(fd);
-  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, fdkey, 1);
+  fcblock *ctrl = (fcblock*) hashtable_find(cur->files, fdkey, strlen(fdkey));
   kfree(fdkey);
   if(ctrl == NULL)
   {
@@ -145,7 +145,7 @@ int sys_close(int fd, int* error)
 		panic("User processes must always have a process control block.");
 	}
   char* fdkey = int_to_byte_string(fd);
-  fcblock *ctrl = (fcblock*) hashtable_remove(cur->files, fdkey, 1);
+  fcblock *ctrl = (fcblock*) hashtable_remove(cur->files, fdkey, strlen(fdkey));
   kfree(fdkey);
   if (ctrl == NULL)
   {

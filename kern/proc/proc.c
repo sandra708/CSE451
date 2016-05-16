@@ -141,9 +141,6 @@ proc_create(const char *name, int *error)
 	proc->exited = false;
 	proc->exit_val = 0;
   proc->next_fd = 3;
-  //sys_open("con:", O_RDWR, error);
-  //sys_open("con:", O_RDWR, error);
-  //sys_open("con:", O_RDWR, error);
 	return proc;
 }
 
@@ -395,7 +392,29 @@ proc_create_fork(const char *name, struct proc *parent, int *error){
 	}
   if(parent->files != NULL)
   {
-    proc->files = parent->files;
+    proc->files = hashtable_create();
+	  if(proc->files == NULL) {
+		  *error = ENOMEM;
+      proc_exit(proc, 0);
+    }
+    for(int i = 3; i < parent->next_fd; i++)
+    {
+      char* fdkey = int_to_byte_string(i);
+      fcblock *controlblock = (fcblock*) hashtable_find(parent->files, fdkey, strlen(fdkey));
+      if (controlblock != NULL)
+      {
+        fcblock *newcontrolblock = kmalloc(sizeof(fcblock));
+        if (newcontrolblock == NULL)
+        {
+          *error = ENOMEM;
+          proc_exit(proc, 0);
+        }
+        newcontrolblock->node = controlblock->node;
+        newcontrolblock->offset = controlblock->offset;
+        newcontrolblock->permissions = controlblock->permissions;
+        hashtable_add(proc->files, fdkey, strlen(fdkey), newcontrolblock);
+      }
+    }
   }
 	spinlock_release(&parent->p_lock);
 
@@ -478,7 +497,7 @@ proc_addfile(struct proc *proc, char* fdkey, void* controlblock)
 	if(hashtable_getsize(proc->files) >= OPEN_MAX){
 		return EMFILE;
 	}
-	int err = hashtable_add(proc->files, fdkey, 1, controlblock);
+	int err = hashtable_add(proc->files, fdkey, strlen(fdkey), controlblock);
 	return err;
 }
 

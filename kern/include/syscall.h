@@ -82,6 +82,8 @@ ssize_t sys_read(int fd, void *buf, size_t buflen, int *error);
 ssize_t sys_write(int fd, const void *buf, size_t nbytes, int *error);
 int sys_close(int fd, int *error);
 
+char* int_to_byte_string(int input);
+
 void sys__exit(int exitcode);
 
 #endif /* _SYSCALL_H_ */
