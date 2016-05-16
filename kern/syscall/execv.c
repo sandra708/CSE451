@@ -26,7 +26,7 @@ int sys_execv(const char* program_name, char** args) {
 	char** kargs;
 	size_t actual;
 
-	kprintf("begin execv\n");
+	//kprintf("begin execv\n");
 
 	lock_acquire(execv_lock);
 
@@ -57,7 +57,7 @@ int sys_execv(const char* program_name, char** args) {
 		argc++;
 	}
 
-	kprintf("Num of args = %d\n", argc);
+	//kprintf("Num of args = %d\n", argc);
 
 	/* allocate space for argv in kernel */
 	kargs = (char**) kmalloc(sizeof(char**));
@@ -71,13 +71,8 @@ int sys_execv(const char* program_name, char** args) {
           can think to do it at the time */
 	total_arg_len = 0;
 	for(i = 0; i < argc; i++) {
-		int arglen = 0;
-		char* curr_arg = args[i];
-		while(curr_arg[arglen]) {
-			arglen++;
-		}
-		total_arg_len += arglen;
-		kargs[i] = (char*) kmalloc(arglen + 1); // +1 for null character
+		size_t arglen = strlen(args[i]);
+		kargs[i] = (char*) kmalloc(sizeof(char) * (arglen + 1)); // +1 for null character
 		if(kargs[i] == NULL || total_arg_len > ARG_MAX) {
 			/* If this spot is reached, out of memory or the max
   			arg length has been exceeded
@@ -96,8 +91,8 @@ int sys_execv(const char* program_name, char** args) {
 			return ENOMEM;	
 		}
 		//Have memory allocated, copy in the argument
-		copyinstr((userptr_t)args[i], kargs[i], arglen, &actual);
-		kprintf("Args copied into kernel: arg%d=%c\n", i, kargs[i][0]);
+		copyinstr((userptr_t)args[i], kargs[i], arglen + 1, &actual);
+		//kprintf("Args copied into kernel: arg%d=%c\n%d chars copied", i, kargs[i][0], actual);
 	}
 	kargs[argc] = NULL; //null terminate kernel args
 
@@ -112,6 +107,7 @@ int sys_execv(const char* program_name, char** args) {
 		return retval;
 	}
 
+	//kprintf("Creating address space\n");
 	as = as_create();
 	if(as == NULL) {
 		for(j = 0; j < argc; j++)
@@ -122,9 +118,11 @@ int sys_execv(const char* program_name, char** args) {
 		lock_release(execv_lock);
 		return ENOMEM;
 	}
-
+	
 	proc_setas(as);
 	as_activate();
+	
+	//kprintf("Activated address space\n");
 
 	retval = load_elf(v, &entrypoint);
 	if(retval) {
@@ -139,6 +137,8 @@ int sys_execv(const char* program_name, char** args) {
 	
 	vfs_close(v);
 
+	//kprintf("defining stack\n");
+
 	retval = as_define_stack(as, &stackptr);
 	if(retval) {
 		for(j = 0; j < argc; j++)
@@ -147,12 +147,40 @@ int sys_execv(const char* program_name, char** args) {
 		kfree(kprogram_name);
 		lock_release(execv_lock);
 		return ENOMEM;
-	}	
+	}
+
+	//kprintf("String to copy args from kernel to user stack\n");
+	/*Time to start copying args onto the user stack*/
+	int offset;
+	int arglocation[argc];
+	for(i = argc - 1; i >= 0; i--) {
+		size_t arglen = strlen(kargs[i]);
+		
+		int padding = 4 - (arglen % 4);
+		offset = arglen + padding;
+		stackptr -= offset;
+		arglocation[i] = stackptr;
+		copyoutstr(kargs[i], (userptr_t) stackptr, arglen, &actual);
+	}
+
+	//copy pointers
+	for(i=argc-1; i >=0; i--) {
+		stackptr -= 4;
+		copyout(&arglocation[i], (userptr_t)stackptr, 4);
+	}
+
+	
+	for(j = 0; j < argc; j++)
+       		kfree(kargs[j]);
+        kfree(kargs);
+        kfree(kprogram_name);
+
 
 	lock_release(execv_lock);
-
+	
+	//kprintf("Warping to user mode");
 	/* Warp to user mode. */
-	enter_new_process(argc, NULL /*userspace addr of argv*/,
+	enter_new_process(argc, (userptr_t)stackptr /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
 

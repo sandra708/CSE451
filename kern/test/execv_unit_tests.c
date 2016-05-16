@@ -19,11 +19,11 @@ int test_execv(int nargs, char** args) {
         (void) nargs;
         (void) args;
 	test_null_parameters();
-        test_arg_string_too_big();
-        test_non_valid_directories();
-        test_program_does_not_exist();
-        test_pass_directory_in();
-        test_non_executable_program();
+        //test_arg_string_too_big();
+        //test_non_valid_directories();
+        //test_program_does_not_exist();
+        //test_pass_directory_in();
+        //test_non_executable_program();
         return 0;
 }
 
@@ -36,11 +36,7 @@ void test_non_valid_directories() {
 	kprintf("Testing passing invalid directories/fake directories into execv\n");
 
 	int retval;
-	const char *empty_directory = "";
 	char *args[2];
-	args[0] = (char*)empty_directory;
-	retval = sys_execv(empty_directory, args);
-	KASSERT(retval == ENOTDIR);
 
 	const char *invalid_directory = "/this_better_not_be_a_real_directory_name_ever/or_else"; 
 	args[0] = (char*)invalid_directory;
