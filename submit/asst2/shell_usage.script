@@ -1,0 +1,66 @@
+Script started on Mon 16 May 2016 07:24:24 PM PDT
+johnnyb_attu$ cd ~/os161/root/
+johnnyb_attu$ sys161 kernel
+sys161: System/161 release 2.0.2, compiled Mar 26 2016 19:00:13
+
+OS/161 base system version 2.0.2
+Copyright (c) 2000, 2001-2005, 2008-2011, 2013, 2014
+   President and Fellows of Harvard College.  All rights reserved.
+
+Put-your-group-name-here's system version 0 (ASST2 #60)
+
+16056k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+
+cpu0: MIPS/161 (System/161 2.x) features 0x0
+OS/161 kernel [? for menu]: s
+(program name unknown): Timing enabled.
+OS/161$ forktest
+forktest: Starting. Expect this many:
+|----------------------------|
+AABBBBCCCCDDCCCCDDDDDDDDDDDDDD
+forktest: Complete.
+(program name unknown): subprocess time: 2.652540685 seconds
+OS/161$ f_  palin
+Welcome to the palindrome tester!
+I will take a large palindrome and test it.
+Here it is:
+amanaplanacaretabanamyriadasumalacaliarahoopapintacatalpaagasanoilabirdayellavatacawapaxawagataxanayaramacapayamagayatsarawallacaralugerawardabinawomanavassalawolfatunaanitapallafretawattabayadaubatanacabadatumagallahatafagazapasayajawalayawetagallopatugatrotatrapatramatorracaperatopatonkatollaballafairasaxaminimatenorabassapasseracapitalarutanamenatedacabalatangasunanassamawasagajamadamasubasaltanaxonasailanadawadiaradianaroomaroodaripatadapariaharevelareelareedapoolaplugapinapeekaparabolaadogapatacudanuafanapalarumanodanetaalaganeelabatikamugamotanapamaximamoodaleekagrubagobageladrabacitadelatotalacedaratapagagaratamanorabaragalacolaapapayawatabarajagabanagapaganabagajarabatawayapapaalocalagarabaronamataragagapataradecalatotaledaticabardalegabogaburgakeeladoomamixamapanatomagumakitabaleenagalaatenadonamuralapanafaunaducatapagodaalobarapakeepanipagulpaloopadeeraleeraleverahairapadatapiradooramooranaidaraidawadanaliasanoxanatlasabusamadamajagasawamassananusagnatalabacadetanemanaturalatipacaressapassabaronetaminimaxasariafallaballotaknotapotarepacarrotamartapartatortagutapollagatewayalawajayasapazagafatahallagamutadabacanatabuadayabattawaterfallapatinaanutaflowalassavanamowanibadrawaregularacallawarastayagamayapacamarayanaxatagawaxapawacatavalleyadribalionasagaaplatacatnipapooharailacalamusadairymanabateracanalpanamaamanaplanacaretabanamyriadasumalacaliarahoopapintacatalpaagasanoilabirdayellavatacawapaxawagataxanayaramacapayamagayatsarawallacaralugerawardabinawomanavassalawolfatunaanitapallafretawattabayadaubatanacabadatumagallahatafagazapasayajawalayawetagallopatugatrotatrapatramatorracaperatopatonkatollaballafairasaxaminimatenorabassapasseracapitalarutanamenatedacabalatangasunanassamawasagajamadamasubasaltanaxonasailanadawadiaradianaroomaroodaripatadapariaharevelareelareedapoolaplugapinapeekaparabolaadogapatacudanuafanapalarumanodanetaalaganeelabatikamugamotanapamaximamoodaleekagrubagobageladrabacitadelatotalacedaratapagagaratamanorabaragalacolaapapayawatabarajagabanagapaganabagajarabatawayapapaalocalagarabaronamataragagapataradecalatotaledaticabardalegabogaburgakeeladoomamixamapanatomagumakitabaleenagalaatenadonamuralapanafaunaducatapagodaalobarapakeepanipagulpaloopadeeraleeraleverahairapadatapiradooramooranaidaraidawadanaliasanoxanatlasabusamadamajagasawamassananusagnatalabacadetanemanaturalatipacaressapassabaronetaminimaxasariafallaballotaknotapotarepacarrotamartapartatortagutapollagatewayalawajayasapazagafatahallagamutadabacanatabuadayabattawaterfallapatinaanutaflowalassavanamowanibadrawaregularacallawarastayagamayapacamarayanaxatagawaxapawacatavalleyadribalionasagaaplatacatnipapooharailacalamusadairymanabateracanalpanamaamanaplanacaretabanamyriadasumalacaliarahoopapintacatalpaagasanoilabirdayellavatacawapaxawagataxanayaramacapayamagayatsarawallacaralugerawardabinawomanavassalawolfatunaanitapallafretawattabayadaubatanacabadatumagallahatafagazapasayajawalayawetagallopatugatrotatrapatramatorracaperatopatonkatollaballafairasaxaminimatenorabassapasseracapitalarutanamenatedacabalatangasunanassamawasagajamadamasubasaltanaxonasailanadawadiaradianaroomaroodaripatadapariaharevelareelareedapoolaplugapinapeekaparabolaadogapatacudanuafanapalarumanodanetaalaganeelabatikamugamotanapamaximamoodaleekagrubagobageladrabacitadelatotalacedaratapagagaratamanorabaragalacolaapapayawatabarajagabanagapaganabagajarabatawayapapaalocalagarabaronamataragagapataradecalatotaledaticabardalegabogaburgakeeladoomamixamapanatomagumakitabaleenagalaatenadonamuralapanafaunaducatapagodaalobarapakeepanipagulpaloopadeeraleeraleverahairapadatapiradooramooranaidaraidawadanaliasanoxanatlasabusamadamajagasawamassananusagnatalabacadetanemanaturalatipacaressapassabaronetaminimaxasariafallaballotaknotapotarepacarrotamartapartatortagutapollagatewayalawajayasapazagafatahallagamutadabacanatabuadayabattawaterfallapatinaanutaflowalassavanamowanibadrawaregularacallawarastayagamayapacamarayanaxatagawaxapawacatavalleyadribalionasagaaplatacatnipapooharailacalamusadairymanabateracanalpanamaamanaplanacaretabanamyriadasumalacaliarahoopapintacatalpaagasanoilabirdayellavatacawapaxawagataxanayaramacapayamagayatsarawallacaralugerawardabinawomanavassalawolfatunaanitapallafretawattabayadaubatanacabadatumagallahatafagazapasayajawalayawetagallopatugatrotatrapatramatorracaperatopatonkatollaballafairasaxaminimatenorabassapasseracapitalarutanamenatedacabalatangasunanassamawasagajamadamasubasaltanaxonasailanadawadiaradianaroomaroodaripatadapariaharevelareelareedapoolaplugapinapeekaparabolaadogapatacudanuafanapalarumanodanetaalaganeelabatikamugamotanapamaximamoodaleekagrubagobageladrabacitadelatotalacedaratapagagaratamanorabaragalacolaapapayawatabarajagabanagapaganabagajarabatawayapapaalocalagarabaronamataragagapataradecalatotaledaticabardalegabogaburgakeeladoomamixamapanatomagumakitabaleenagalaatenadonamuralapanafaunaducatapagodaalobarapakeepanipagulpaloopadeeraleeraleverahairapadatapiradooramooranaidaraidawadanaliasanoxanatlasabusamadamajagasawamassananusagnatalabacadetanemanaturalatipacaressapassabaronetaminimaxasariafallaballotaknotapotarepacarrotamartapartatortagutapollagatewayalawajayasapazagafatahallagamutadabacanatabuadayabattawaterfallapatinaanutaflowalassavanamowanibadrawaregularacallawarastayagamayapacamarayanaxatagawaxapawacatavalleyadribalionasagaaplatacatnipapooharailacalamusadairymanabateracanalpanama
+Testing.....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................IS a palindrome
+(program name unknown): subprocess time: 15.863623694 seconds
+OS/161$ argtest 1 2 3 4 5 50
+argc: 7
+argv[0]: argtest
+argv[1]: 1
+argv[2]: 2
+argv[3]: 3
+argv[4]: 4
+argv[5]: 5
+argv[6]: 50
+argv[7]: [NULL]
+(program name unknown): subprocess time: 0.373642102 seconds
+OS/161$ factorial 10
+3628800
+(program name unknown): subprocess time: 1.039426423 seconds
+OS/161$ add 2 5
+Answer: 7
+(program name unknown): subprocess time: 0.162504364 seconds
+OS/161$ kite chen
+(program name unknown): subprocess time: 2.612648795 seconds
+OS/161$ 
+johnnyb_attu$ exit
+exit
+
+Script done on Mon 16 May 2016 07:25:31 PM PDT

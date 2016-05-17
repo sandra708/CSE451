@@ -1,0 +1,58 @@
+Script started on Mon 16 May 2016 07:31:44 PM PDT
+johnnyb_attu$ cd os[K[Kroot/os[K[K[K/
+johnnyb_attu$ sys161[K[K[K[K[K[Kcat test.txt
+Testing testing 1 2 3johnnyb_attu$ cat test2.txt
+cat: test2.txt: No such file or directory
+johnnyb_attu$ sys161 kernel
+sys161: System/161 release 2.0.2, compiled Mar 26 2016 19:00:13
+
+OS/161 base system version 2.0.2
+Copyright (c) 2000, 2001-2005, 2008-2011, 2013, 2014
+   President and Fellows of Harvard College.  All rights reserved.
+
+Put-your-group-name-here's system version 0 (ASST2 #60)
+
+16056k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+
+cpu0: MIPS/161 (System/161 2.x) features 0x0
+OS/161 kernel [? for menu]: s
+(program name unknown): Timing enabled.
+OS/161$ cat test.txt
+Testing testing 1 2 3(program name unknown): subprocess time: 0.196249388 seconds
+OS/161$ cp  cat test2.txt
+cat: test2.txt: No such file or directory
+(program name unknown): subprocess time: 0.217664167 seconds
+Signal 0
+OS/161$ cp test.txt test2.txt
+(program name unknown): subprocess time: 0.178596111 seconds
+OS/161$ cat test.txt
+Testing testing 1 2 3(program name unknown): subprocess time: 0.196258991 seconds
+OS/161$ cat txt  est2.txt
+Testing testing 1 2 3(program name unknown): subprocess time: 0.196120765 seconds
+OS/161$ exit
+Operation took 33.159040971 seconds
+OS/161 kernel [? for menu]: ex  q
+Shutting down.
+The system is halted.
+sys161: 973208221 cycles (82376642 run, 890831579 global-idle)
+sys161:   cpu0: 25670581 kern, 49637 user, 0 idle; 21325 ll, 21325/0 sc, 65518 sync
+sys161: 1583 irqs 1738 exns 0r/0w disk 97r/1300w console 66r/2w/23m emufs 0r/0w net
+sys161: Elapsed real time: 36.324671 seconds (26.7919 mhz)
+sys161: Elapsed virtual time: 38.932622268 seconds (25 mhz)
+johnnyb_attu$ exit
+exit
+
+Script done on Mon 16 May 2016 07:32:58 PM PDT
