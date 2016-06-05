@@ -27,6 +27,7 @@ device random0 at lrandom*	# Abstract randomness device
 #options net			# Network stack (not supported)
 
 options sfs			# Always use the file system
+options semfs
 #options netfs			# You might write this as a project.
 
 #options dumbvm			# Use your own VM system now.
