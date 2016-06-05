@@ -387,7 +387,7 @@ file      syscall/time_syscalls.c
 file	  syscall/process_syscalls.c
 file	  syscall/execv.c
 file    syscall/file_syscalls.c
-
+file	  syscall/sbrk.c
 #
 # Startup and initialization
 #
