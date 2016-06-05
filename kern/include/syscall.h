@@ -78,6 +78,8 @@ int sys_fork(struct trapframe *tf, int *error);
 int sys_waitpid(int pid, userptr_t status, int options);
 int sys_execv(const char *program, char **args);
 
+int sys_sbrk(intptr_t amount, int *error);
+
 int sys_open(const char *filename, int flags, int *error);
 ssize_t sys_read(int fd, void *buf, size_t buflen, int *error);
 ssize_t sys_write(int fd, const void *buf, size_t nbytes, int *error);
