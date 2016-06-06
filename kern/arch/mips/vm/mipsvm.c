@@ -39,6 +39,8 @@ coremap_bootstrap(){
 
 	// allocate the coremap right at the base address	
 	coremap = (struct coremap_entry*) PADDR_TO_KVADDR(base);
+	coremap_length = npages;
+	
 
 	// set the coremap entries for the memory occupied by the coremap itself
 	int mappages = 0;

@@ -6,6 +6,8 @@
 #include <synch.h>
 
 struct coremap_entry *coremap;
+unsigned int coremap_length;
+
 struct bitmap *coremap_free;
 struct bitmap *coremap_swappable;
 

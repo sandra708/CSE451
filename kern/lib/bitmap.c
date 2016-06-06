@@ -95,16 +95,25 @@ bitmap_getdata(struct bitmap *b)
         return b->v;
 }
 
-int
+int 
 bitmap_alloc(struct bitmap *b, unsigned *index)
+{
+	return bitmap_alloc_after(b, 0, index);
+}
+
+int
+bitmap_alloc_after(struct bitmap *b, unsigned min, unsigned *index)
 {
         unsigned ix;
         unsigned maxix = DIVROUNDUP(b->nbits, BITS_PER_WORD);
-        unsigned offset;
+        unsigned offset = min % BITS_PER_WORD;
+	bool first = true;
 
-        for (ix=0; ix<maxix; ix++) {
+        for (ix= min / BITS_PER_WORD; ix<maxix; ix++) {
                 if (b->v[ix]!=WORD_ALLBITS) {
-                        for (offset = 0; offset < BITS_PER_WORD; offset++) {
+			if(!first)
+				offset = 0;
+                        for (; offset < BITS_PER_WORD; offset++) {
                                 WORD_TYPE mask = ((WORD_TYPE)1) << offset;
 
                                 if ((b->v[ix] & mask)==0) {
@@ -116,6 +125,7 @@ bitmap_alloc(struct bitmap *b, unsigned *index)
                         }
                         KASSERT(0);
                 }
+		first = false;
         }
         return ENOSPC;
 }

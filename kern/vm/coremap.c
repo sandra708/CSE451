@@ -5,39 +5,76 @@
 #include <coremap.h>
 #include <vm.h>
 
+static
+int
+locate_range(struct bitmap *map, unsigned npages, unsigned int *result){
+	unsigned int min = 0;
+	while(true){
+		unsigned int idx = 0;
+		int err  = bitmap_alloc_after(map, min, &idx);
+		if(err){
+			return err;
+		}
+
+		if(idx + npages > coremap_length){
+			bitmap_unmark(map, idx);
+			return ENOSPC;
+		}
+
+		bool success = true;
+		for(unsigned int i = 0; i < npages; i++){
+			if(coremap[idx + i].flags | COREMAP_INUSE){
+				bitmap_unmark(map, idx);
+				min = idx + i;
+				success = false;
+				break;
+			}
+		}
+	
+		if(success){
+			*result = idx;
+			return 0;
+		}
+	}
+}
+
 paddr_t
 coremap_allocate_page(bool iskern, int pid, int npages){
-	(void) npages; //TODO
 	
 	unsigned int idx;
-	int err = bitmap_alloc(coremap_free, &idx);
+	int err = locate_range(coremap_free, npages, &idx);
 	if(!err){
-		coremap[idx].pid = pid;
-		coremap[idx].flags = COREMAP_INUSE;
-		bitmap_mark(coremap_free, idx);
-		if(!iskern){
-			coremap[idx].flags |= COREMAP_SWAPPABLE;
-		}else{
-			bitmap_mark(coremap_swappable, idx);
+		for(int i = 0; i < npages; i++){
+			coremap[idx + i].pid = pid;
+			coremap[idx + i].flags = COREMAP_INUSE;
+			bitmap_mark(coremap_free, idx + i);
+			if(!iskern){
+				coremap[idx + i].flags |= COREMAP_SWAPPABLE;
+			}else{
+				bitmap_mark(coremap_swappable, idx + i);
+			}
 		}
 		return coremap_untranslate(idx);
 	}
 
-	err = bitmap_alloc(coremap_swappable, &idx);
+	err = locate_range(coremap_swappable, npages, &idx);
 	if(!err){
-		if(coremap[idx].flags | COREMAP_DIRTY){
-			//TODO: push memory out to disk
+		for(int i = 0; i < npages; i++){
+			if(coremap[idx + i].flags | COREMAP_DIRTY){
+				//TODO: push memory out to disk
+			}
+			//TODO: invalidate former owner's page table
+			//TODO: zero physical memory
+			coremap[idx + i].pid = pid;
+			coremap[idx + i].flags = COREMAP_INUSE;
+			bitmap_mark(coremap_free, idx + i);
+			if(!iskern){
+				coremap[idx + i].flags |= COREMAP_SWAPPABLE;
+			} else{
+				bitmap_mark(coremap_swappable, idx + i);
+			}
 		}
-		//TODO: invalidate former owner's page table
-		//TODO: zero physical memory
-		coremap[idx].pid = pid;
-		coremap[idx].flags = COREMAP_INUSE;
-		bitmap_mark(coremap_free, idx);
-		if(!iskern){
-			coremap[idx].flags |= COREMAP_SWAPPABLE;
-		} else{
-			bitmap_mark(coremap_swappable, idx);
-		}
+		return coremap_untranslate(idx);
 	}
 
 	panic("Main memory is entirely full with kernel heap: no new memory can be allocated.");

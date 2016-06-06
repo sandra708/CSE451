@@ -38,6 +38,7 @@
  *                      Returns NULL on error.
  *     bitmap_getdata - return pointer to raw bit data (for I/O).
  *     bitmap_alloc   - locate a cleared bit, set it, and return its index.
+ *     bitmap_alloc_after - locate a cleared bit at or after the given minimum index
  *     bitmap_mark    - set a clear bit by its index.
  *     bitmap_unmark  - clear a set bit by its index.
  *     bitmap_isset   - return whether a particular bit is set or not.
@@ -50,6 +51,7 @@ struct bitmap;  /* Opaque. */
 struct bitmap *bitmap_create(unsigned nbits);
 void          *bitmap_getdata(struct bitmap *);
 int            bitmap_alloc(struct bitmap *, unsigned *index);
+int		bitmap_alloc_after(struct bitmap *, unsigned min, unsigned *index);
 void           bitmap_mark(struct bitmap *, unsigned index);
 void           bitmap_unmark(struct bitmap *, unsigned index);
 int            bitmap_isset(struct bitmap *, unsigned index);
