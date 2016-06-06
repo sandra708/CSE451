@@ -28,9 +28,7 @@ vaddr_t alloc_kpages(unsigned npages){
 }
 
 void free_kpages(vaddr_t addr){
-	paddr_t paddr = -1; 
-	(void) addr;
-	// TODO: convert vaddr to paddr
+	paddr_t paddr = KVADDR_TO_PADDR(addr);
 	
 	lock_acquire(coremap_lock);
 	coremap_free_page(paddr);

@@ -123,7 +123,8 @@ bitmap_alloc_after(struct bitmap *b, unsigned min, unsigned *index)
                                         return 0;
                                 }
                         }
-                        KASSERT(0);
+                        if(!first)
+				KASSERT(0);
                 }
 		first = false;
         }

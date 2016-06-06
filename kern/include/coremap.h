@@ -13,8 +13,9 @@ struct bitmap *coremap_swappable;
 
 struct lock *coremap_lock;
 
-#define COREMAP_INUSE 4
-#define COREMAP_SWAPPABLE 2
+#define COREMAP_INUSE 8
+#define COREMAP_SWAPPABLE 4
+#define COREMAP_MULTI 2
 #define COREMAP_DIRTY 1
 
 struct coremap_entry{

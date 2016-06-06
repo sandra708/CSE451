@@ -48,6 +48,9 @@ coremap_allocate_page(bool iskern, int pid, int npages){
 		for(int i = 0; i < npages; i++){
 			coremap[idx + i].pid = pid;
 			coremap[idx + i].flags = COREMAP_INUSE;
+			if(i > 0){
+				coremap[idx + i].flags |= COREMAP_MULTI;
+			}
 			bitmap_mark(coremap_free, idx + i);
 			if(!iskern){
 				coremap[idx + i].flags |= COREMAP_SWAPPABLE;
@@ -106,12 +109,21 @@ coremap_swap_page(/*param needed*/){
 
 void 
 coremap_free_page(paddr_t paddr){
-	/* TODO: Wipe physical memory */
 	int idx = coremap_translate(paddr);
 	coremap[idx].flags = 0;
 	coremap[idx].pid = 0;
+	/* We know that the page was in kernelspace, and thus both bitmaps were set */
 	bitmap_unmark(coremap_free, idx);
 	bitmap_unmark(coremap_swappable, idx);
+	/* Zero this page */
+	while(coremap[idx + 1].flags & COREMAP_MULTI){
+		idx++;
+		coremap[idx].flags = 0;
+		coremap[idx].pid = 0;
+		bitmap_unmark(coremap_free, idx);
+		bitmap_unmark(coremap_swappable, idx);
+		/* Zero this page */
+	}
 }
 
 void 
