@@ -12,6 +12,7 @@ struct bitmap *coremap_free;
 struct bitmap *coremap_swappable;
 
 struct lock *coremap_lock;
+struct cv *coremap_cv;
 
 #define COREMAP_INUSE 8
 #define COREMAP_SWAPPABLE 4

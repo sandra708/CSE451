@@ -164,7 +164,8 @@ bitmap_unmark(struct bitmap *b, unsigned index)
         KASSERT(index < b->nbits);
         bitmap_translate(index, &ix, &mask);
 
-        KASSERT((b->v[ix] & mask)!=0);
+        //KASSERT((b->v[ix] & mask)!=0);
+	// it's fine to "unmark" a bit that was already unmarked (for coremap system)
         b->v[ix] &= ~mask;
 }
 

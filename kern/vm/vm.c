@@ -27,12 +27,11 @@ vaddr_t alloc_kpages(unsigned npages){
 	return vaddr;
 }
 
+/* Kfree MUST be able to operate while in interrupt, and therefore can't acquire the coremap lock */
 void free_kpages(vaddr_t addr){
 	paddr_t paddr = KVADDR_TO_PADDR(addr);
 	
-	lock_acquire(coremap_lock);
 	coremap_free_page(paddr);
-	lock_release(coremap_lock);
 }
 
 /* TLB shootdown handling called from interprocessor_interrupt */

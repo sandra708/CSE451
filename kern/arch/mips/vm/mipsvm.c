@@ -35,7 +35,7 @@ coremap_bootstrap(){
 		panic("Page sizes other than 4096 bytes not supported.");
 	}
 	int npages = (bound - base) >> VM_PAGEOFFSET;
-	int bytes = npages * sizeof(struct coremap_entry);
+	int nbytes = npages * sizeof(struct coremap_entry);
 
 	// allocate the coremap right at the base address	
 	coremap = (struct coremap_entry*) PADDR_TO_KVADDR(base);
@@ -44,10 +44,10 @@ coremap_bootstrap(){
 
 	// set the coremap entries for the memory occupied by the coremap itself
 	int mappages = 0;
-	while(bytes > 0){
+	while(nbytes > 0){
 		coremap[mappages].flags = (COREMAP_INUSE) | (COREMAP_DIRTY);
 		coremap[mappages].pid = 0; // the kernel's reserved pid
-		bytes = bytes - 4096;
+		nbytes = nbytes - PAGE_SIZE;
 		mappages++;
 	}
 
@@ -63,8 +63,9 @@ coremap_bootstrap(){
 		bitmap_mark(coremap_swappable, i);
 	}
 
-	// now allocate the lock (which uses kmalloc and the coremap as normal)	
+	// now allocate the lock and cv (which uses kmalloc and the coremap as normal)	
 	coremap_lock = lock_create("COREMAP");
+	coremap_cv = cv_create("COREMAP");
 }
 
 paddr_t
