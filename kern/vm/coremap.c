@@ -6,27 +6,58 @@
 #include <vm.h>
 
 paddr_t
-coremap_allocate_page(bool iskern){
-	//TODO
-	(void) iskern;
-	return 0;
+coremap_allocate_page(bool iskern, int pid, int npages){
+	(void) npages; //TODO
+	
+	unsigned int idx;
+	int err = bitmap_alloc(coremap_free, &idx);
+	if(!err){
+		coremap[idx].pid = pid;
+		coremap[idx].flags = COREMAP_INUSE;
+		bitmap_mark(coremap_free, idx);
+		if(!iskern){
+			coremap[idx].flags |= COREMAP_SWAPPABLE;
+		}else{
+			bitmap_mark(coremap_swappable, idx);
+		}
+		return coremap_untranslate(idx);
+	}
+
+	err = bitmap_alloc(coremap_swappable, &idx);
+	if(!err){
+		if(coremap[idx].flags | COREMAP_DIRTY){
+			//TODO: push memory out to disk
+		}
+		//TODO: invalidate former owner's page table
+		//TODO: zero physical memory
+		coremap[idx].pid = pid;
+		coremap[idx].flags = COREMAP_INUSE;
+		bitmap_mark(coremap_free, idx);
+		if(!iskern){
+			coremap[idx].flags |= COREMAP_SWAPPABLE;
+		} else{
+			bitmap_mark(coremap_swappable, idx);
+		}
+	}
+
+	panic("Main memory is entirely full with kernel heap: no new memory can be allocated.");
 }
 
 paddr_t 
 coremap_swap_page(/*param needed*/){
 	unsigned int idx;
-	bitmap_alloc(coremap_free, &idx);
-	if(idx != ENOSPC){
-		/* We were able to locate empty page frame */
+	int err = bitmap_alloc(coremap_free, &idx);
+	if(!err){
+		/* We were able to locate an empty page frame */
 		paddr_t paddr = coremap_untranslate(idx);
 		/* TODO: Swap in from disk */
 		return paddr;
 	}else{
-		bitmap_alloc(coremap_swappable, &idx);
-		if(idx == ENOSPC){
-			panic("Memory completely full with kernel data: Unable to swap any page in from disk.\n");
+		err = bitmap_alloc(coremap_swappable, &idx);
+		if(err){
+			panic("Memory completely full with kernel heap: Unable to swap any page in from disk.\n");
 		}
-		if(coremap[idx].flags && COREMAP_DIRTY){
+		if(coremap[idx].flags & COREMAP_DIRTY){
 			/* TODO: Write out to disk */
 		}
 		paddr_t paddr = coremap_untranslate(idx);

@@ -13,10 +13,14 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages){
-	(void) npages; //TODO: make this work for more than one page
+
+	if(coremap_lock == NULL){
+		paddr_t paddr = coremap_allocate_early(npages);
+		return PADDR_TO_KVADDR(paddr);
+	}
 
 	lock_acquire(coremap_lock);
-	paddr_t paddr = coremap_allocate_page(true);
+	paddr_t paddr = coremap_allocate_page(true, 0, npages);
 	lock_release(coremap_lock);
 
 	vaddr_t vaddr = PADDR_TO_KVADDR(paddr);

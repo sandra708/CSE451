@@ -12,7 +12,7 @@ struct bitmap *coremap_swappable;
 struct lock *coremap_lock;
 
 #define COREMAP_INUSE 4
-#define COREMAP_EVICTABLE 2
+#define COREMAP_SWAPPABLE 2
 #define COREMAP_DIRTY 1
 
 struct coremap_entry{
@@ -24,10 +24,14 @@ void
 coremap_bootstrap(void);
 
 paddr_t
-coremap_allocate_page(bool iskern);
+coremap_allocate_page(bool iskern, int pid, int npages);
+
+// only use before VM system is fully running
+paddr_t
+coremap_allocate_early(int npages);
 
 paddr_t
-coremap_swap_page(/*param needed */ void);
+coremap_swap_page(/*struct pagetable_entry *entry */ void);
 
 void 
 coremap_free_page(paddr_t paddr);
@@ -38,7 +42,8 @@ coremap_mark_page_dirty(paddr_t paddr);
 void 
 coremap_mark_page_clean(paddr_t paddr);
 
-/* An architecture-specific translator between a paddr and the index into that frame of the coremap */
+/* An architecture-specific translator between a paddr and the index into that frame of the coremap 
+ * These do not check that the values given are valid for memory contained in the coremap */
 int
 coremap_translate(paddr_t paddr);
 

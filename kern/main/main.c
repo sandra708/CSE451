@@ -43,6 +43,7 @@
 #include <current.h>
 #include <synch.h>
 #include <vm.h>
+#include <coremap.h>
 #include <mainbus.h>
 #include <vfs.h>
 #include <device.h>
@@ -104,6 +105,10 @@ boot(void)
 	kprintf("Put-your-group-name-here's system version %s (%s #%d)\n",
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
+
+	// set coremap to NULL explicitly so that allocation can proceed
+	coremap = NULL;
+	coremap_lock = NULL;
 
 	/* Early initialization. */
 	ram_bootstrap();
