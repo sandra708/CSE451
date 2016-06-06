@@ -23,7 +23,7 @@ locate_range(struct bitmap *map, unsigned npages, unsigned int *result){
 
 		bool success = true;
 		for(unsigned int i = 0; i < npages; i++){
-			if(coremap[idx + i].flags | COREMAP_INUSE){
+			if(coremap[idx + i].flags & COREMAP_INUSE){
 				bitmap_unmark(map, idx);
 				min = idx + i;
 				success = false;
@@ -33,6 +33,7 @@ locate_range(struct bitmap *map, unsigned npages, unsigned int *result){
 	
 		if(success){
 			*result = idx;
+			bitmap_unmark(map, idx);
 			return 0;
 		}
 	}
