@@ -6,40 +6,47 @@
 #include <synch.h>
 
 struct coremap_entry *coremap;
+unsigned int coremap_length;
+
 struct bitmap *coremap_free;
 struct bitmap *coremap_swappable;
 
 struct lock *coremap_lock;
 
-#define COREMAP_INUSE 4
-#define COREMAP_EVICTABLE 2
+#define COREMAP_INUSE 8
+#define COREMAP_SWAPPABLE 4
+#define COREMAP_MULTI 2
 #define COREMAP_DIRTY 1
-#define COREMAP_PID 0x7FFF // limits.h restricts the PID value; if that changes, this must as well
 
 struct coremap_entry{
 	uint8_t flags;
-	uint16_t pid;
+	uint16_t pid; // limits.h restricts the PID to this size; if that changes, this must too
 };
 
 void
-coremap_bootstrap();
+coremap_bootstrap(void);
 
 paddr_t
-allocate_page();
+coremap_allocate_page(bool iskern, int pid, int npages);
+
+// only use before VM system is fully running
+paddr_t
+coremap_allocate_early(int npages);
 
 paddr_t
-swap_page(struct pagetable_entry *entry);
+coremap_swap_page(/*struct pagetable_entry *entry */ void);
 
 void 
-free_page(paddr_t paddr);
+coremap_free_page(paddr_t paddr);
 
 void 
-mark_page_dirty(paddr_t paddr);
+coremap_mark_page_dirty(paddr_t paddr);
 
 void 
-mark_page_clean(paddr_t paddr);
+coremap_mark_page_clean(paddr_t paddr);
 
-/* An architecture-specific translator between a paddr and the index into that frame of the coremap */
+/* An architecture-specific translator between a paddr and the index into that frame of the coremap 
+ * These do not check that the values given are valid for memory contained in the coremap */
 int
 coremap_translate(paddr_t paddr);
 

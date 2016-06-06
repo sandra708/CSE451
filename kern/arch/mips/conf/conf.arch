@@ -62,6 +62,7 @@ machine mips file    arch/mips/thread/threadstart.S	# New thread startup
 #
 
 machine mips file    arch/mips/vm/ram.c		# Physical memory accounting
+machine mips file    arch/mips/vm/mipsvm.c
 
 # This is included here rather than in conf.kern because
 # it may not be suitable for all architectures.
