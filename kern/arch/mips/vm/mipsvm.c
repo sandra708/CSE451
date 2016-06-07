@@ -66,6 +66,7 @@ coremap_bootstrap(){
 	// now allocate the lock and cv (which uses kmalloc and the coremap as normal)	
 	coremap_lock = lock_create("COREMAP");
 	coremap_cv = cv_create("COREMAP");
+	spinlock_init(&coremap_spinlock);
 }
 
 paddr_t
