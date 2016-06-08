@@ -25,20 +25,21 @@ struct cv *coremap_cv;
 struct coremap_entry{
 	uint8_t flags;
 	uint16_t pid; // limits.h restricts the PID to this size; if that changes, this must too
+	userptr_t vaddr;
 };
 
 void
 coremap_bootstrap(void);
 
 paddr_t
-coremap_allocate_page(bool iskern, int pid, int npages);
+coremap_allocate_page(bool iskern, int pid, int npages, userptr_t vaddr);
 
 // only use before VM system is fully running
 paddr_t
 coremap_allocate_early(int npages);
 
 paddr_t
-coremap_swap_page(/*struct pagetable_entry *entry */ void);
+coremap_swap_page(unsigned int diskblock, userptr_t vaddr, int pid);
 
 void 
 coremap_free_page(paddr_t paddr);
@@ -51,7 +52,7 @@ coremap_free_page(paddr_t paddr);
  *
  * DO NOT call on kernelspace memory. These are methods for paddrs allocated for userspace use. */
 
-void 
+bool 
 coremap_lock_acquire(paddr_t paddr);
 
 void

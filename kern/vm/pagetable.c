@@ -32,9 +32,13 @@ struct pagetable* pagetable_create(void)
 
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr)
 {
-  paddr_t newpage = coremap_swap_page();
+	//TODO
+	(void) table;
+	(void) addr;
+  /*paddr_t newpage = coremap_swap_page();
   pagetable_add(table, addr, newpage);
-  return newpage;
+  return newpage;*/
+  return 0;
 }
 
 paddr_t pagetable_lookup(struct pagetable* table, vaddr_t addr)

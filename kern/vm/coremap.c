@@ -6,6 +6,7 @@
 #include <spinlock.h>
 #include <synch.h>
 #include <coremap.h>
+#include <swap.h>
 #include <vm.h>
 
 static
@@ -120,8 +121,20 @@ locate_swap(unsigned int *idx){
 	return locate_random(idx);
 }
 
+static 
+void
+coremap_swap_page_out(unsigned int core_idx){
+	(void) core_idx;
+	//TODO: find vaddr
+	//TODO: find/lock page table entry (check for a requested free)
+	//TODO: if dirty, push to disk
+	//TODO: invalidate page table entry
+	//TODO: tlb shootdown
+	//TODO: unlock page table entry
+}
+
 paddr_t
-coremap_allocate_page(bool iskern, int pid, int npages){
+coremap_allocate_page(bool iskern, int pid, int npages, userptr_t vaddr){
 	
 	unsigned int idx;
 	int err = locate_range(coremap_free, npages, &idx);
@@ -134,6 +147,9 @@ coremap_allocate_page(bool iskern, int pid, int npages){
 			}
 			if(!iskern){
 				coremap[idx + i].flags |= COREMAP_SWAPPABLE;
+				coremap[idx + i].vaddr = vaddr;
+			} else {
+				coremap[idx + i].vaddr = 0;
 			}
 
 			void* kvaddr = (void*) PADDR_TO_KVADDR(coremap_untranslate(idx));
@@ -148,10 +164,9 @@ coremap_allocate_page(bool iskern, int pid, int npages){
 	}
 
 	for(int i = 0; i < npages; i++){
-		if(coremap[idx + i].flags | COREMAP_DIRTY){
-			//TODO: push memory out to disk
+		if(coremap[idx + i].flags | COREMAP_INUSE){
+			coremap_swap_page_out(idx + i);
 		}
-		//TODO: invalidate former owner's page table
 
 		//zero physical memory
 		void* kvaddr = (void*) PADDR_TO_KVADDR(coremap_untranslate(idx));
@@ -162,7 +177,10 @@ coremap_allocate_page(bool iskern, int pid, int npages){
 		coremap[idx + i].flags = COREMAP_INUSE;
 		if(!iskern){
 			coremap[idx + i].flags |= COREMAP_SWAPPABLE;
-		} 
+			coremap[idx + i].vaddr = vaddr;
+		} else{
+			coremap[idx + i].vaddr = 0;
+		}
 		if(i > 0){
 			coremap[idx + i].flags |= COREMAP_MULTI;
 		}
@@ -172,18 +190,22 @@ coremap_allocate_page(bool iskern, int pid, int npages){
 }
 
 paddr_t 
-coremap_swap_page(/*param needed*/){
+coremap_swap_page(unsigned int diskblock, userptr_t vaddr, int pid){
 	unsigned int idx;
+	// wait for a free page ? return error ?
 	while(locate_swap(&idx)){
 		cv_wait(coremap_cv, coremap_lock);
 	}
 	
-	/* TODO: reset the other page table */
-	if(coremap[idx].flags & COREMAP_DIRTY){
-		/* TODO: Write out to disk */
-	}
+	coremap_swap_page_out(idx);
+
 	paddr_t paddr = coremap_untranslate(idx);
-	/* TODO: swap in from disk */
+	swap_page_in((void*) PADDR_TO_KVADDR(paddr), diskblock);
+	
+	coremap[idx].pid = pid;
+	coremap[idx].vaddr = vaddr;
+	coremap[idx].flags = COREMAP_INUSE | COREMAP_SWAPPABLE;
+
 	return paddr;
 }
 
@@ -200,10 +222,8 @@ coremap_free_page(paddr_t paddr){
 	for(int i = 0; i < num; i++){
 		coremap[idx + i].flags = 0;
 		coremap[idx + i].pid = 0;
-		/* TODO: Zero memory*/
+		coremap[idx + i].vaddr = 0;
 	}
-
-	//TODO: zero / de-allocate disk sector
 
 	/* now, un-set the bitmaps */
 	spinlock_acquire(&coremap_spinlock);
@@ -213,9 +233,10 @@ coremap_free_page(paddr_t paddr){
 	}
 	spinlock_release(&coremap_spinlock);
 
+	/* TODO: consider cv usage in detail */
+
 	/* wake threads waiting on more memory */
 	if(lock_do_i_hold(coremap_lock)){
-		// alert waiting threads to newly freed memory
 		cv_broadcast(coremap_cv, coremap_lock);
 	} else {
 		// we might be in interrupt, so CAN'T hold the lock, but we want to broadcast the cv anyhow
@@ -230,7 +251,7 @@ bool
 coremap_lock_acquire(paddr_t paddr){
 	// now lay claim to the bitmap - keep a swap from sneaking up behind us
 	spinlock_acquire(&coremap_spinlock);
-	if(bitmap_isset(coremap_swappable, coremap_translate(paddr)){
+	if(bitmap_isset(coremap_swappable, coremap_translate(paddr))){
 		spinlock_release(&coremap_spinlock);
 		return false;
 	}

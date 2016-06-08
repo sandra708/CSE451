@@ -11,6 +11,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <coremap.h>
+#include <swap.h>
 
 // base and bound for vm-managed memory
 paddr_t base;
@@ -22,7 +23,7 @@ paddr_t bound;
 void
 vm_bootstrap(){
 	coremap_bootstrap();
-	//TODO: diskswap_bootstrap?
+	swap_bootstrap(PAGE_SIZE);
 }
 
 void
@@ -47,6 +48,7 @@ coremap_bootstrap(){
 	while(nbytes > 0){
 		coremap[mappages].flags = (COREMAP_INUSE) | (COREMAP_DIRTY);
 		coremap[mappages].pid = 0; // the kernel's reserved pid
+		coremap[mappages].vaddr = 0; // userspace field
 		nbytes = nbytes - PAGE_SIZE;
 		mappages++;
 	}

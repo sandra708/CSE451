@@ -37,7 +37,7 @@ vaddr_t alloc_kpages(unsigned npages){
 		return PADDR_TO_KVADDR(paddr);
 	}
 
-	paddr_t paddr = coremap_allocate_page(true, 0, npages);
+	paddr_t paddr = coremap_allocate_page(true, 0, npages, NULL);
 
 	vaddr_t vaddr = PADDR_TO_KVADDR(paddr);
 	return vaddr;
