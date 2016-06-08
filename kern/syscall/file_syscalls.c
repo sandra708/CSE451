@@ -8,24 +8,6 @@
 #include <uio.h>
 #include <kern/iovec.h>
 
-char* int_to_byte_string(int input)
-{
-  char* digits = kmalloc(21);
-  if (digits == NULL)
-  {
-    return NULL;
-  }
-  int digitcount = 0;
-  while(input > 0)
-  {
-    digits[digitcount] = input % 256;
-    input /= 256;
-    digitcount++;
-  }
-  digits[digitcount] = 0;
-  return digits;
-}
-
 int sys_open(const char *filename, int flags, int* error)
 {
   *error = 0;

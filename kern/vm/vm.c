@@ -2,12 +2,30 @@
 #include <synch.h>
 #include <vm.h>
 #include <coremap.h>
+#include <pagetable.h>
+#include <current.h>
+#include <proc.h>
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress){
-	//TODO
-	(void) faulttype;
-	(void) faultaddress;
+  struct proc *cur = curproc; 
+  if(cur == NULL)
+  {
+		return 1;
+	}
+  if (faulttype < 2)
+  {
+    paddr_t newentry = pagetable_lookup(cur->pages, faultaddress);
+    if (newentry == 0)
+    {
+      return 1;
+    }
+    return 0;
+  }
+	else
+  {
+    //TODO attempting to write a readonly page?
+  }
 	return 0;
 }
 

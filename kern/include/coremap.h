@@ -1,5 +1,7 @@
 /* Functions relating to the core-map used to track page frames */
 
+#ifndef _COREMAP_H_
+#define _COREMAP_H_
 
 #include <kern/limits.h>
 #include <bitmap.h>
@@ -53,3 +55,5 @@ coremap_translate(paddr_t paddr);
 
 paddr_t 
 coremap_untranslate(int idx);
+
+#endif
