@@ -13,15 +13,22 @@ struct pagetable{
   struct lock *pagetable_lock;
 };
 
+#define PAGETABLE_VALID 1
+#define PAGETABLE_INMEM 2
+#define PAGETABLE_DIRTY 4
+
 struct pagetable_entry{
+	struct spinlock lock;
 	paddr_t addr;
+	unsigned int swap;
+	uint8_t flags;
 };
 
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t vaddr);
 
 struct pagetable* pagetable_create(void);
 
-paddr_t
+struct pagetable_entry*
 pagetable_lookup(struct pagetable* table, vaddr_t vaddr);
 
 bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr);

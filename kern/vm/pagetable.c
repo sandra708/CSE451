@@ -41,7 +41,7 @@ paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr)
   return 0;
 }
 
-paddr_t pagetable_lookup(struct pagetable* table, vaddr_t addr)
+struct pagetable_entry pagetable_lookup(struct pagetable* table, vaddr_t addr)
 {
   vaddr_t offset = addr & 4095;
   int frame = addr >> 12;
@@ -51,17 +51,21 @@ paddr_t pagetable_lookup(struct pagetable* table, vaddr_t addr)
           hashtable_find(table->maintable, mainkey, strlen(mainkey));
   if (subtable == NULL)
   {
+	// ??
     return pagetable_pull(table, addr);
   }
   int subindex = frame & 1023;
   char* subkey = int_to_byte_string(subindex);
   struct pagetable_entry* entry = (struct pagetable_entry*) 
         hashtable_find(subtable, subkey, strlen(subkey));
+
+	return entry;
+	/*
   if (entry == NULL)
   {
     return pagetable_pull(table, addr);
   }
-  return (entry->addr << 12) + offset;
+  return (entry->addr << 12) + offset; */
 }
 
 bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
@@ -83,7 +87,7 @@ bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
   if (entry == NULL)
   {
     entry = kmalloc(sizeof(struct pagetable_entry));
-    entry->addr = paddr >> 12;
+    entry->addr = paddr >> 12; // why shift?
     return false;
   }
   entry->addr = paddr >> 12;

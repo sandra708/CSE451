@@ -5,6 +5,8 @@
 #include <wchan.h>
 #include <spinlock.h>
 #include <synch.h>
+#include <pid.h>
+#include <proc.h>
 #include <coremap.h>
 #include <swap.h>
 #include <vm.h>
@@ -125,12 +127,28 @@ static
 void
 coremap_swap_page_out(unsigned int core_idx){
 	(void) core_idx;
-	//TODO: find vaddr
-	//TODO: find/lock page table entry (check for a requested free)
-	//TODO: if dirty, push to disk
-	//TODO: invalidate page table entry
-	//TODO: tlb shootdown
-	//TODO: unlock page table entry
+	userptr_t vaddr = coremap[core_idx].vaddr;
+
+	struct proc *proc = pid_get_proc(coremap[core_idx].pid);
+	struct pagetable_entry *entry = pagetable_lookup(proc->pages, vaddr);
+	if(entry == NULL)
+		return;
+
+	if(coremap[core_idx].flags & COREMAP_DIRTY){
+		spinlock_acquire(&entry->lock);
+		unsigned int disk_idx = entry->swap;
+		spinlock_release(&entry->lock);
+
+		paddr_t paddr = coremap_untranslate(core_idx);
+		void* kvaddr = (void*) PADDR_TO_KVADDR(paddr);
+		swap_page_out(kvaddr, disk_idx);
+	}
+
+	spinlock_acquire(&entry->lock);
+	entry->flags &= ~(PAGETABLE_DIRTY);
+	//TODO: tlb shootdown (wait for completion)
+	entry->flags &= ~(PAGETABLE_INMEM);
+	spinlock_release(&entry->lock);
 }
 
 paddr_t
