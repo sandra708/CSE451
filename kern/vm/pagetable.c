@@ -6,6 +6,8 @@
 #include <vm.h>
 #include <hashtable.h>
 #include <pagetable.h>
+#include <current.h>
+#include <proc.h>
 
 struct pagetable* pagetable_create(void)
 {
@@ -32,17 +34,17 @@ struct pagetable* pagetable_create(void)
 
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr)
 {
-	//TODO
-	(void) table;
-	(void) addr;
-  /*paddr_t newpage = coremap_swap_page();
+  struct proc* cur = curproc;
+	paddr_t newpage = coremap_allocate_page(false, cur->pid, 1, (userptr_t) addr);
   pagetable_add(table, addr, newpage);
-  return newpage;*/
-  return 0;
+  coremap_lock_release(newpage);
+  lock_release(table->pagetable_lock);
+  return newpage;
 }
 
 paddr_t pagetable_lookup(struct pagetable* table, vaddr_t addr)
 {
+  lock_acquire(table->pagetable_lock);
   vaddr_t offset = addr & 4095;
   int frame = addr >> 12;
   int mainindex = frame >> 10;
@@ -61,11 +63,13 @@ paddr_t pagetable_lookup(struct pagetable* table, vaddr_t addr)
   {
     return pagetable_pull(table, addr);
   }
+  lock_release(table->pagetable_lock);
   return (entry->addr << 12) + offset;
 }
 
 bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
 {
+  lock_acquire(table->pagetable_lock);
   vaddr_t frame = vaddr >> 12;
   int mainindex = frame >> 10;
   char* mainkey = int_to_byte_string(mainindex);
@@ -84,14 +88,17 @@ bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
   {
     entry = kmalloc(sizeof(struct pagetable_entry));
     entry->addr = paddr >> 12;
+    lock_release(table->pagetable_lock);
     return false;
   }
   entry->addr = paddr >> 12;
+  lock_release(table->pagetable_lock);
   return true;
 }
 
 bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
 {
+  lock_acquire(table->pagetable_lock);
   int frame = vaddr >> 12;
   int mainindex = frame >> 10;
   char* mainkey = int_to_byte_string(mainindex);
@@ -99,6 +106,7 @@ bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
         hashtable_find(table->maintable, mainkey, strlen(mainkey));
   if (subtable == NULL)
   {
+    lock_release(table->pagetable_lock);
     return false;
   }
   int subindex = frame & 1023;
@@ -107,6 +115,7 @@ bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
         hashtable_remove(subtable, subkey, strlen(subkey));
   if (entry == NULL)
   {
+    lock_release(table->pagetable_lock);
     return false;
   }
   kfree(entry);
@@ -115,11 +124,13 @@ bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
   {
     hashtable_destroy(subtable);
   }
+  lock_release(table->pagetable_lock);
   return true;
 }
 
 int pagetable_destroy(struct pagetable* table)
 {
+  lock_acquire(table->pagetable_lock);
   for(int i = 0; i < 1024; i++)
   {
     if(hashtable_getsize(table->maintable) == 0)
@@ -143,6 +154,8 @@ int pagetable_destroy(struct pagetable* table)
     hashtable_destroy(subtable);
   }
   hashtable_destroy(table->maintable);
+  lock_release(table->pagetable_lock);
+  lock_destroy(table->pagetable_lock);
   kfree(table);
   table = NULL;
   return 0;
