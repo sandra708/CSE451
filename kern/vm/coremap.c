@@ -226,12 +226,17 @@ coremap_free_page(paddr_t paddr){
 	}
 }
 
-void 
+bool 
 coremap_lock_acquire(paddr_t paddr){
 	// now lay claim to the bitmap - keep a swap from sneaking up behind us
 	spinlock_acquire(&coremap_spinlock);
+	if(bitmap_isset(coremap_swappable, coremap_translate(paddr)){
+		spinlock_release(&coremap_spinlock);
+		return false;
+	}
 	bitmap_mark(coremap_swappable, coremap_translate(paddr));
 	spinlock_release(&coremap_spinlock);
+	return true;
 }
 
 void
