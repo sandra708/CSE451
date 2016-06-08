@@ -15,7 +15,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	}
   if (faulttype < 2)
   {
-    paddr_t newentry = pagetable_lookup(cur->pages, faultaddress);
+    struct pagetable_entry *newentry = pagetable_lookup(cur->pages, faultaddress);
+	// pull from disk or grow stack
     if (newentry == 0)
     {
       return 1;

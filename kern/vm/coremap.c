@@ -129,8 +129,8 @@ coremap_swap_page_out(unsigned int core_idx){
 	(void) core_idx;
 	userptr_t vaddr = coremap[core_idx].vaddr;
 
-	struct proc *proc = pid_get_proc(coremap[core_idx].pid);
-	struct pagetable_entry *entry = pagetable_lookup(proc->pages, vaddr);
+	struct proc *proc = pid_get_proc(pids, coremap[core_idx].pid);
+	struct pagetable_entry *entry = pagetable_lookup(proc->pages, (vaddr_t) vaddr);
 	if(entry == NULL)
 		return;
 
@@ -148,6 +148,13 @@ coremap_swap_page_out(unsigned int core_idx){
 	entry->flags &= ~(PAGETABLE_DIRTY);
 	//TODO: tlb shootdown (wait for completion)
 	entry->flags &= ~(PAGETABLE_INMEM);
+
+	// free disk and invalidate entirely if requested
+	if(entry->flags & PAGETABLE_REQUEST_FREE){
+		swap_free(entry->swap);
+		entry->flags &= ~PAGETABLE_VALID;
+	}
+
 	spinlock_release(&entry->lock);
 }
 
