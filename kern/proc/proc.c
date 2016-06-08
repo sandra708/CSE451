@@ -116,6 +116,17 @@ proc_create(const char *name, int *error)
 		kfree(proc);
 		return NULL;
 	}
+
+  proc->pages = pagetable_create();
+  if (proc->pages == NULL) {
+    cv_destroy(proc->wait);
+    *error = ENOMEM;
+		hashtable_destroy(proc->files);
+		list_destroy(proc->children);
+		kfree(proc->p_name);
+		kfree(proc);
+    return NULL;
+  }
 	
 	
 	if(pids == NULL){
@@ -275,6 +286,10 @@ proc_exit(struct proc *proc, int exitcode)
   }
 	hashtable_destroy(proc->files);
 	proc->files = NULL;
+
+  //destroy page table
+  pagetable_destroy(proc->pages);
+  proc->pages = NULL;
 
 	/* destroy own cv */
 	cv_destroy(proc->wait);

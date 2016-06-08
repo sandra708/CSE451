@@ -42,6 +42,7 @@
 #include <pid.h>
 #include <list.h>
 #include <hashtable.h>
+#include <pagetable.h>
 
 struct addrspace;
 struct thread;
@@ -91,6 +92,8 @@ struct proc {
 	struct list *children; /* the process ids for the children of this process (if any) */
 
 	struct hashtable *files;		/* the file descriptors for this process's open files (no duplicates!) */
+
+  struct pagetable *pages; /* the page table for this process */
 
   int next_fd;
 
