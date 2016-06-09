@@ -4,6 +4,7 @@
 #include <spinlock.h>
 #include <synch.h>
 #include <proc.h>
+#include <cpu.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <coremap.h>
@@ -88,6 +89,21 @@ void free_kpages(vaddr_t addr){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *tlbshootdown){
-	(void) tlbshootdown;
-	//TODO
+	int tlb_idx = tlb_probe(tlbshootdown->badaddr, 0);
+	if(tlb_idx >= 0){
+		uint32_t tlb_hi = MIPS_KSEG2 | (tlb_idx << 12);
+		uint32_t tlb_lo = 0;
+		tlb_write(tlb_hi, tlb_lo, tlb_idx);
+	}
+	kfree((void*) tlbshootdown);
+}
+
+/* include in vm.h; move code to thread.c to be able to use cpu array*/
+void vm_tlbshootdown_all(vaddr_t badaddr){
+	unsigned numcpus = cpuarray_num(&allcpus);
+	for(unsigned i = 0; i < numcpus; i++){
+		struct tlbshootdown *tlbshootdown = kmalloc(sizeof(tlbshootdown));
+		tlbshootdown->badaddr = badaddr;
+		ipi_tlbshootdown(cpuarray_get(i), tlbshootdown);
+	}
 }

@@ -31,6 +31,8 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <current.h>
+#include <mips/tlb.h>
+#include <mips/vm.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
@@ -135,6 +137,12 @@ as_activate(void)
 	/*
 	 * Write this.
 	 */
+	/* Invalidate all of the tlb entries */
+	for(uint32_t i = 0; i < NUM_TLB; i++){
+		uint32_t tlb_hi = MIPS_KSEG2 | (i << 12); // out of range
+		uint32_t tlb_lo = 0; // shouldn't matter
+		tlb_write(tlb_hi, tlb_lo, i);
+	}
 }
 
 void

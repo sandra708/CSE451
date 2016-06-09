@@ -140,6 +140,9 @@ coremap_swap_page_out(unsigned int core_idx){
 	if(coremap[core_idx].flags & COREMAP_DIRTY){
 		spinlock_acquire(&entry->lock);
 		unsigned int disk_idx = entry->swap;
+		entry->flags &= ~(PAGETABLE_DIRTY);
+		coremap[core_idx].flags &= ~(COREMAP_DIRTY);
+		//tlb-shootdown to revoke writing privileges
 		spinlock_release(&entry->lock);
 
 		paddr_t paddr = coremap_untranslate(core_idx);
