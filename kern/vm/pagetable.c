@@ -23,14 +23,35 @@ struct pagetable* pagetable_create(void)
     kfree(table);
     return NULL;
   }
-  table->maintable = hashtable_create();
-  if (table->maintable == NULL)
+
+  table->valids = bitmap_create(1024);
+  if (table->valids == NULL)
   {
     lock_destroy(table->pagetable_lock);
     kfree(table);
     return NULL;
   }
+
   return table;
+}
+
+static
+struct pagetable_subtable* pagetable_create_subtable(void)
+{
+  struct pagetable_subtable *subtable = kmalloc(sizeof(struct pagetable_subtable));
+  if(subtable == NULL)
+  {
+    return NULL;
+  }
+
+  subtable->valids = bitmap_create(1024);
+  if(subtable->valids == NULL)
+  {
+    kfree(subtable);
+    return NULL;
+  }
+
+  return subtable;
 }
 
 void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid)
@@ -45,44 +66,48 @@ void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid)
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr, uint8_t flags)
 {
   struct proc* cur = curproc;
-	paddr_t newpage = coremap_allocate_page(false, cur->pid, 1, (userptr_t) addr);
+  paddr_t newpage = coremap_allocate_page(false, cur->pid, 1, (userptr_t) addr);
   pagetable_add(table, addr, newpage, flags);
   coremap_lock_release(newpage);
-  lock_release(table->pagetable_lock);
   return newpage;
 }
 
 struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
 {
-  lock_acquire(table->pagetable_lock);
+
+  // we CAN'T kmalloc here, as we are potentially inside of a kmalloc call
+
   int frame = addr >> 12;
   int mainindex = frame >> 10;
-  char* mainkey = int_to_byte_string(mainindex);
-  struct hashtable* subtable = (struct hashtable*) 
-          hashtable_find(table->maintable, mainkey, strlen(mainkey));
-  if (subtable == NULL)
+
+  int subindex = frame & 1023;
+
+  lock_acquire(table->pagetable_lock);
+  if (!bitmap_isset(table->valids, mainindex))
   {
     lock_release(table->pagetable_lock);
     return NULL;
   }
-  int subindex = frame & 1023;
-  char* subkey = int_to_byte_string(subindex);
-  struct pagetable_entry* entry = (struct pagetable_entry*) 
-        hashtable_find(subtable, subkey, strlen(subkey));
+
+  struct pagetable_subtable *subtable = table->entries[mainindex];
+  if(!bitmap_isset(subtable->valids, subindex))
+  {
+    lock_release(table->pagetable_lock);
+    return NULL;
+  }
+
+  struct pagetable_entry* entry = subtable->entries[subindex];
   if (entry == NULL)
   {
     lock_release(table->pagetable_lock);
     return NULL;
   }
+
   // clear invalid entry
-  if(!entry->flags | PAGETABLE_VALID){
+  if(!entry->flags & PAGETABLE_VALID){
     kfree(entry);
+    bitmap_unmark(subtable->valids, subindex);
     entry = NULL;
-    size_t subsize = hashtable_getsize(subtable);
-    if (subsize == 0)
-    {
-      hashtable_destroy(subtable);
-    }
   }
 
   lock_release(table->pagetable_lock);
@@ -91,76 +116,99 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
 
 bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr, uint8_t flags)
 {
-  lock_acquire(table->pagetable_lock);
+  // anything that could call kmalloc can't hold the pagetable lock, ever
+
   vaddr_t frame = vaddr >> 12;
   int mainindex = frame >> 10;
-  char* mainkey = int_to_byte_string(mainindex);
-  struct hashtable* subtable = (struct hashtable*) 
-          hashtable_find(table->maintable, mainkey, strlen(mainkey));
-  if (subtable == NULL)
-  {
-    subtable = hashtable_create();
-    hashtable_add(table->maintable, mainkey, strlen(mainkey), subtable);
-  }
+
   int subindex = frame & 1023;
-  char* subkey = int_to_byte_string(subindex);
-  struct pagetable_entry* entry = (struct pagetable_entry*) 
-        hashtable_find(subtable, subkey, strlen(subkey));
-  if (entry == NULL)
+
+  lock_acquire(table->pagetable_lock);
+  struct pagetable_subtable *subtable = table->entries[mainindex];
+  if (!bitmap_isset(table->valids, mainindex))
   {
-    entry = kmalloc(sizeof(struct pagetable_entry));
+    // release lock to use kmalloc
+    lock_release(table->pagetable_lock);
+    subtable = pagetable_create_subtable();
+    lock_acquire(table->pagetable_lock);
+    if(subtable == NULL)
+    {
+       //ENOMEM
+       return false;
+    }
+    bitmap_mark(table->valids, mainindex);
+    table->entries[mainindex] = subtable;
+  } 
+
+  if (!bitmap_isset(subtable->valids, subindex))
+  {
+    // since kmalloc can allocate pages, we might deadlock
+    lock_release(table->pagetable_lock);
+    struct pagetable_entry *entry = kmalloc(sizeof(struct pagetable_entry));
     entry->addr = paddr >> 12;
     int err = swap_allocate(&entry->swap);
     if(err){
 	// TODO: out of swap space
+        return false;
     }
     entry->flags = flags | PAGETABLE_VALID | PAGETABLE_INMEM;
+    spinlock_init(&entry->lock);
+
+    lock_acquire(table->pagetable_lock);
+    bitmap_mark(subtable->valids, subindex);
+    subtable->entries[subindex] = entry;
     lock_release(table->pagetable_lock);
-    return false;
+
+    return true;
   }
+
+  struct pagetable_entry *entry = subtable->entries[subindex];
   entry->addr = paddr >> 12;
   int err = swap_allocate(&entry->swap);
   if(err){
 	// TODO: out of swap space
+	return false;
   }
   entry->flags = flags | PAGETABLE_VALID | PAGETABLE_INMEM;
   lock_release(table->pagetable_lock);
+
   return true;
 }
 
 bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
 {
-  lock_acquire(table->pagetable_lock);
   int frame = vaddr >> 12;
   int mainindex = frame >> 10;
-  char* mainkey = int_to_byte_string(mainindex);
-  struct hashtable* subtable = (struct hashtable*) 
-        hashtable_find(table->maintable, mainkey, strlen(mainkey));
-  if (subtable == NULL)
-  {
-    lock_release(table->pagetable_lock);
-    return false;
-  }
+
   int subindex = frame & 1023;
-  char* subkey = int_to_byte_string(subindex);
-  struct pagetable_entry* entry = (struct pagetable_entry*) 
-        hashtable_find(subtable, subkey, strlen(subkey));
-  if (entry == NULL)
+
+  lock_acquire(table->pagetable_lock);
+  if (!bitmap_isset(table->valids, mainindex))
   {
     lock_release(table->pagetable_lock);
     return false;
   }
 
+  struct pagetable_subtable* subtable = table->entries[mainindex];
+  if (!bitmap_isset(subtable->valids, subindex))
+  {
+    lock_release(table->pagetable_lock);
+    return false;
+  }
+
+  struct pagetable_entry *entry = subtable->entries[subindex];
+
   // remove page from coremap and disk
   spinlock_acquire(&entry->lock);
+  lock_release(table->pagetable_lock); // cannot touch coremap while holding ptbl lock
+
   if(entry->flags | PAGETABLE_INMEM){
     bool inmem = coremap_lock_acquire(entry->addr << 12);
     if(inmem){
       spinlock_release(&entry->lock);
       coremap_free_page(entry->addr << 12);
       swap_free(entry->swap);
-      struct pagetable_entry* entry = (struct pagetable_entry*) 
-          hashtable_find(subtable, subkey, strlen(subkey));
+      bitmap_unmark(subtable->valids, subindex);
       kfree(entry);
     }else{
       // the page is in the process of being swapped out by another process (can't free directly)
@@ -170,18 +218,10 @@ bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
   } else {
     spinlock_release(&entry->lock);
     swap_free(entry->swap);
-
-    struct pagetable_entry* entry = (struct pagetable_entry*) 
-        hashtable_find(subtable, subkey, strlen(subkey));
+    bitmap_unmark(subtable->valids, subindex);
     kfree(entry);
   }
 
-  size_t subsize = hashtable_getsize(subtable);
-  if (subsize == 0)
-  {
-    hashtable_destroy(subtable);
-  }
-  lock_release(table->pagetable_lock);
   return true;
 }
 
@@ -194,39 +234,35 @@ bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, i
 
   for(int i = 0; i < 1024; i++)
   {
-    if(hashtable_getsize(old->maintable) == 0)
+    // we have to be inside the lock - so no kmalloc
+
+    if(!bitmap_isset(old->valids, i))
     {
-      break;
-    }
-    char* index = int_to_byte_string(i);
-    struct hashtable* subtable = (struct hashtable*) 
-        hashtable_find(old->maintable, index, strlen(index));
-
-    if(subtable == NULL)
       continue;
+    }
 
-    struct hashtable *copy_subtable = hashtable_create();
+    struct pagetable_subtable *subtable = old->entries[i];
+
+    lock_release(copy->pagetable_lock);
+    lock_release(old->pagetable_lock);
+    struct pagetable_subtable *copy_subtable = pagetable_create_subtable();
     if(copy_subtable == NULL){
-      lock_release(copy->pagetable_lock);
-      lock_release(old->pagetable_lock);
       return false;
     }
+    lock_acquire(old->pagetable_lock);
+    lock_acquire(copy->pagetable_lock);
 
-    char *copy_index = int_to_byte_string(i);
-    hashtable_add(copy->maintable, copy_index, strlen(copy_index), copy_subtable);
+    bitmap_mark(copy->valids, i);
+    copy->entries[i] = copy_subtable;
 
     for(int j = 0; j < 1024; j++)
     {
-      if(hashtable_getsize(subtable) == 0)
-      {
-        break;
-      }
-      char* subindex = int_to_byte_string(j);
-      struct pagetable_entry* entry = (struct pagetable_entry*)
-            hashtable_find(subtable, subindex, strlen(subindex));
+      struct pagetable_entry* entry = subtable->entries[j];
 
-      if(entry->flags & PAGETABLE_VALID)
+      if(bitmap_isset(subtable->valids, j) && (entry->flags & PAGETABLE_VALID))
       {
+        lock_release(copy->pagetable_lock);
+        lock_release(old->pagetable_lock);
         struct pagetable_entry *copy_entry = kmalloc(sizeof(struct pagetable_entry));
         vaddr_t vaddr = (i << 22) | (j << 12);
 
@@ -260,8 +296,9 @@ bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, i
         }
         spinlock_init(&copy_entry->lock);
 
-        char *copy_subindex = int_to_byte_string(j);
-        hashtable_add(copy_subtable, copy_subindex, strlen(copy_subindex), copy_entry);
+        lock_acquire(copy->pagetable_lock);
+        bitmap_mark(copy_subtable->valids, j);
+        copy_subtable->entries[j] = copy_entry;
         coremap_lock_release(copy_entry->addr << 12);
       }
     }
@@ -278,41 +315,43 @@ int pagetable_free_all(struct pagetable* table)
   lock_acquire(table->pagetable_lock);
   for(int i = 0; i < 1024; i++)
   {
-    if(hashtable_getsize(table->maintable) == 0)
+    if(!bitmap_isset(table->valids, i))
     {
-      break;
+      continue;
     }
-    char* index = int_to_byte_string(i);
-    struct hashtable* subtable = (struct hashtable*) 
-        hashtable_find(table->maintable, index, strlen(index));
+
+    struct pagetable_subtable* subtable = table->entries[i];
     for(int j = 0; j < 1024; j++)
     {
-      if(hashtable_getsize(subtable) == 0)
+      if(!bitmap_isset(subtable->valids, j))
       {
-        break;
+        continue;
       }
-      char* subindex = int_to_byte_string(j);
-      struct pagetable_entry* entry = (struct pagetable_entry*)
-            hashtable_find(subtable, subindex, strlen(subindex));
+      struct pagetable_entry* entry = subtable->entries[j];
 
       if(!entry->flags & PAGETABLE_VALID)
       {
-	hashtable_remove(subtable, subindex, strlen(subindex));
-	kfree(entry);
         continue;
       }
 
+      spinlock_acquire(&entry->lock);
       if(entry->flags & PAGETABLE_INMEM)
       {
         if(coremap_lock_acquire(entry->addr << 12))
         {
+          spinlock_release(&entry->lock);
           coremap_free_page(entry->addr << 12);
           swap_free(entry->swap);
+          entry->flags &= ~(PAGETABLE_VALID);
         } else {
+          entry->flags |= PAGETABLE_REQUEST_FREE | PAGETABLE_REQUEST_DESTROY;
           ref++;
+          spinlock_release(&entry->lock);
         }
       } else {
+        spinlock_release(&entry->lock);
 	swap_free(entry->swap);
+        entry->flags &= ~(PAGETABLE_VALID);
       }
     }
   }
@@ -320,6 +359,39 @@ int pagetable_free_all(struct pagetable* table)
   return ref;
 }
 
+int pagetable_destroy(struct pagetable* table)
+{
+  lock_acquire(table->pagetable_lock);
+  for(int i = 0; i < 1024; i++)
+  {
+    if(!bitmap_isset(table->valids, i))
+    {
+       continue;
+    }
+    struct pagetable_subtable* subtable = table->entries[i];
+    for(int j = 0; j < 1024; j++)
+    {
+      if(!bitmap_isset(subtable->valids, j))
+      {
+        continue;
+      }
+      struct pagetable_entry* entry = subtable->entries[j];
+
+      kfree(entry);
+    }
+    kfree(subtable->entries);
+    kfree(subtable->valids);
+    kfree(subtable);
+  }
+  kfree(table->entries);
+  lock_release(table->pagetable_lock);
+  lock_destroy(table->pagetable_lock);
+  kfree(table);
+  table = NULL;
+  return 0;
+}
+
+/*
 int pagetable_destroy(struct pagetable* table)
 {
   lock_acquire(table->pagetable_lock);
@@ -353,4 +425,5 @@ int pagetable_destroy(struct pagetable* table)
   table = NULL;
   return 0;
 }
+*/
 

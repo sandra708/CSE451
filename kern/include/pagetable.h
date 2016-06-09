@@ -3,6 +3,7 @@
 #ifndef _PAGETABLE_H_
 #define _PAGETABLE_H_
 
+#include <bitmap.h>
 #include <kern/limits.h>
 #include <synch.h>
 #include <hashtable.h>
@@ -10,8 +11,14 @@
 #include <swap.h>
 
 struct pagetable {
-  struct hashtable *maintable;
+  struct bitmap *valids;
+  struct pagetable_subtable *entries[1024];
   struct lock *pagetable_lock;
+};
+
+struct pagetable_subtable {
+  struct bitmap *valids;
+  struct pagetable_entry *entries[1024];
 };
 
 #define PAGETABLE_VALID 1
@@ -21,6 +28,7 @@ struct pagetable {
 #define PAGETABLE_READABLE 16
 #define PAGETABLE_WRITEABLE 32
 #define PAGETABLE_EXECUTABLE 64
+#define PAGETABLE_REQUEST_DESTROY 128
 
 struct pagetable_entry{
 	struct spinlock lock;

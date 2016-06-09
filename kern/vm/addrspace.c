@@ -195,6 +195,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
       {
         return ENOMEM;
       }
+      resident = pagetable_lookup(as->pages, v);
     }
     resident->flags = resident->flags % 16 + flags;
   }

@@ -50,6 +50,7 @@
 #include <addrspace.h>
 #include <mainbus.h>
 #include <vnode.h>
+#include <vm.h> // for TLB shootdown func
 
 
 /* Magic number used as a guard value on kernel thread stacks. */
@@ -1347,12 +1348,14 @@ thread_join(struct thread * child)
         return cur->t_child_value;
 }
 
-/* include in vm.h; move code to thread.c to be able to use cpu array*/
+/* include in vm.h; move code to thread.c to be able to use cpu array */
 void vm_tlbshootdown_all(vaddr_t badaddr){
 	unsigned numcpus = cpuarray_num(&allcpus);
 	for(unsigned i = 0; i < numcpus; i++){
-		struct tlbshootdown *tlbshootdown = kmalloc(sizeof(tlbshootdown));
-		tlbshootdown->badaddr = badaddr;
-		ipi_tlbshootdown(cpuarray_get(&allcpus, i), tlbshootdown);
+		struct cpu *target = cpuarray_get(&allcpus, i);
+		struct tlbshootdown shootdown;
+		shootdown.badaddr = badaddr;
+		ipi_tlbshootdown(target, &shootdown);
+		// protect the stack pointer by waiting for interrupt to complete
 	}
 }

@@ -142,7 +142,7 @@ coremap_swap_page_out(unsigned int core_idx){
 		unsigned int disk_idx = entry->swap;
 		entry->flags &= ~(PAGETABLE_DIRTY);
 		coremap[core_idx].flags &= ~(COREMAP_DIRTY);
-		//tlb-shootdown to revoke writing privileges
+		vm_tlbshootdown_all((vaddr_t) coremap[core_idx].vaddr);
 		spinlock_release(&entry->lock);
 
 		paddr_t paddr = coremap_untranslate(core_idx);
@@ -150,9 +150,19 @@ coremap_swap_page_out(unsigned int core_idx){
 		swap_page_out(kvaddr, disk_idx);
 	}
 
+	// notify address space if its waiting to destroy safely
+	lock_acquire(as->destroy_lock);
 	spinlock_acquire(&entry->lock);
+	if(as->destroying && (entry->flags & PAGETABLE_REQUEST_DESTROY)){
+		as->destroy_count--;
+		cv_signal(as->destroy_cv, as->destroy_lock);
+	}
+
+	// interleave locks
+	lock_release(as->destroy_lock);
+
 	entry->flags &= ~(PAGETABLE_DIRTY);
-	//TODO: tlb shootdown (wait for completion)
+	vm_tlbshootdown_all((vaddr_t) coremap[core_idx].vaddr);
 	entry->flags &= ~(PAGETABLE_INMEM);
 
 	// free disk and invalidate entirely if requested
@@ -162,14 +172,6 @@ coremap_swap_page_out(unsigned int core_idx){
 	}
 
 	spinlock_release(&entry->lock);
-
-	// notify address space if its waiting to destroy safely
-	lock_acquire(as->destroy_lock);
-	if(as->destroying){
-		as->destroy_count--;
-		cv_broadcast(as->destroy_cv, as->destroy_lock);
-	}
-	lock_release(as->destroy_lock);
 }
 
 paddr_t
