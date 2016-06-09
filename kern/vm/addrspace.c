@@ -30,6 +30,7 @@
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
+#include <current.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
@@ -53,8 +54,9 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
-
+	as->pid = curproc->pid;
 	as->pages = pagetable_create();
+
 	as->destroying = false;
 	as->destroy_count = 0;
 	as->destroy_lock = lock_create("ADDRESS SPACE DESTROY");
@@ -77,7 +79,15 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 * Write this.
 	 */
 
-	(void)old;
+	// don't call copy AFTER calling destroy
+	KASSERT(old->destroying == false);
+
+	bool success = pagetable_copy(old->pages, old->pid, newas->pages, newas->pid);
+
+	if(!success){
+		as_destroy(newas);
+		return ENOMEM;
+	}
 
 	*ret = newas;
 	return 0;

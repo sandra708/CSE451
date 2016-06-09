@@ -60,6 +60,7 @@ struct addrspace {
 #else
         /* Put stuff here for your VM system */
 	struct pagetable *pages; /* the page table for this address space */
+	int pid;
 
 	/* Stuff related to destroying the address space without causing conflicts with demand paging */
 	bool destroying;

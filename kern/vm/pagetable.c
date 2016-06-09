@@ -1,13 +1,14 @@
 #include <types.h>
 #include <lib.h>
+#include <hashtable.h>
 #include <kern/errno.h>
+#include <current.h>
+#include <proc.h>
+#include <spinlock.h>
 #include <synch.h>
 #include <coremap.h>
 #include <vm.h>
-#include <hashtable.h>
 #include <pagetable.h>
-#include <current.h>
-#include <proc.h>
 
 struct pagetable* pagetable_create(void)
 {
@@ -30,6 +31,14 @@ struct pagetable* pagetable_create(void)
     return NULL;
   }
   return table;
+}
+
+void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid)
+{
+  paddr_t paddr = coremap_swap_page(entry->swap, (userptr_t) vaddr, pid);
+  entry->addr = paddr >> 12;
+  entry->flags |= PAGETABLE_INMEM;
+  entry->flags &= ~(PAGETABLE_DIRTY);
 }
 
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr)
@@ -168,6 +177,83 @@ bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
     hashtable_destroy(subtable);
   }
   lock_release(table->pagetable_lock);
+  return true;
+}
+
+bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, int copypid)
+{
+  (void) oldpid;
+
+  lock_acquire(copy->pagetable_lock);
+  lock_acquire(old->pagetable_lock);
+
+  for(int i = 0; i < 1024; i++)
+  {
+    if(hashtable_getsize(old->maintable) == 0)
+    {
+      break;
+    }
+    char* index = int_to_byte_string(i);
+    struct hashtable* subtable = (struct hashtable*) 
+        hashtable_find(old->maintable, index, strlen(index));
+
+    if(subtable == NULL)
+      continue;
+
+    struct hashtable *copy_subtable = hashtable_create();
+    if(copy_subtable == NULL){
+      return false;
+    }
+
+    char *copy_index = int_to_byte_string(i);
+    hashtable_add(copy->maintable, copy_index, strlen(copy_index), copy_subtable);
+
+    for(int j = 0; j < 1024; j++)
+    {
+      if(hashtable_getsize(subtable) == 0)
+      {
+        break;
+      }
+      char* subindex = int_to_byte_string(j);
+      struct pagetable_entry* entry = (struct pagetable_entry*)
+            hashtable_find(subtable, subindex, strlen(subindex));
+
+      if(entry->flags & PAGETABLE_VALID)
+      {
+        struct pagetable_entry *copy_entry = kmalloc(sizeof(struct pagetable_entry));
+        vaddr_t vaddr = (i << 22) | (j << 12);
+
+        //TODO: do this without doing I/O across a spinlock
+        spinlock_acquire(&entry->lock); 
+        if(entry->flags & PAGETABLE_DIRTY)
+        {
+          // force a write to disk
+          swap_page_out((void*) PADDR_TO_KVADDR(entry->addr << 12), entry->swap);
+	  entry->flags &= ~(PAGETABLE_DIRTY);
+        }
+        spinlock_release(&entry->lock);
+
+        copy_entry->addr = coremap_allocate_page(false, copypid, 1, (userptr_t) vaddr) >> 12;
+        swap_page_in((void*) PADDR_TO_KVADDR(copy_entry->addr << 12), entry->swap);
+
+        swap_allocate(&copy_entry->swap);
+        swap_page_out((void*) PADDR_TO_KVADDR(copy_entry->addr << 12), copy_entry->swap);
+	copy_entry->flags = PAGETABLE_VALID | PAGETABLE_INMEM;
+	if(entry->flags | PAGETABLE_READ_ONLY)
+        {
+          copy_entry->flags |= PAGETABLE_READ_ONLY;
+        }
+        spinlock_init(&copy_entry->lock);
+
+        char *copy_subindex = int_to_byte_string(j);
+        hashtable_add(copy_subtable, copy_subindex, strlen(copy_subindex), copy_entry);
+        coremap_lock_release(copy_entry->addr << 12);
+      }
+    }
+  }
+
+  lock_release(old->pagetable_lock);
+  lock_release(copy->pagetable_lock);
   return true;
 }
 

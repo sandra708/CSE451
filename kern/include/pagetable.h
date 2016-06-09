@@ -27,6 +27,9 @@ struct pagetable_entry{
 	uint8_t flags;
 };
 
+/* swaps the given entry from disk into memory; DOES NOT release the coremap-lock */
+void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid);
+
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t vaddr);
 
 struct pagetable *pagetable_create(void);
@@ -37,6 +40,8 @@ struct pagetable_entry
 bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr);
 
 bool pagetable_remove(struct pagetable* table, vaddr_t vaddr);
+
+bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, int copypid);
 
 int pagetable_free_all(struct pagetable* table);
 
