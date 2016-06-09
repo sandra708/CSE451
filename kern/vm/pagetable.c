@@ -39,6 +39,7 @@ void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid)
   entry->addr = paddr >> 12;
   entry->flags |= PAGETABLE_INMEM;
   entry->flags &= ~(PAGETABLE_DIRTY);
+  coremap_lock_release(entry->addr << 12);
 }
 
 paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr)
@@ -62,7 +63,6 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
   if (subtable == NULL)
   {
     return NULL;
-    //return pagetable_pull(table, addr); // I'm not sure we should be auto-adding?
   }
   int subindex = frame & 1023;
   char* subkey = int_to_byte_string(subindex);
