@@ -230,11 +230,9 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	 * Write this.
 	 */
 
-	(void)as;
-
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
-	return 0;
+	return as_define_region(as, (*stackptr)-8192, 4096*3, 1, 1, 0);
 }
 

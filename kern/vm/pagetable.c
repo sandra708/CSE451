@@ -62,6 +62,7 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
           hashtable_find(table->maintable, mainkey, strlen(mainkey));
   if (subtable == NULL)
   {
+    lock_release(table->pagetable_lock);
     return NULL;
   }
   int subindex = frame & 1023;
@@ -70,6 +71,7 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
         hashtable_find(subtable, subkey, strlen(subkey));
   if (entry == NULL)
   {
+    lock_release(table->pagetable_lock);
     return NULL;
   }
   // clear invalid entry
@@ -205,6 +207,8 @@ bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, i
 
     struct hashtable *copy_subtable = hashtable_create();
     if(copy_subtable == NULL){
+      lock_release(copy->pagetable_lock);
+      lock_release(old->pagetable_lock);
       return false;
     }
 
