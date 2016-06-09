@@ -93,8 +93,6 @@ struct proc {
 
 	struct hashtable *files;		/* the file descriptors for this process's open files (no duplicates!) */
 
-  struct pagetable *pages; /* the page table for this process */
-
   int next_fd;
 
 	int exit_val;			/* value that this process exited with (if it has exited) */

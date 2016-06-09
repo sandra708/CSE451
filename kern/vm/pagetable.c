@@ -171,6 +171,54 @@ bool pagetable_remove(struct pagetable* table, vaddr_t vaddr)
   return true;
 }
 
+int pagetable_free_all(struct pagetable* table)
+{
+  int ref = 0;
+  lock_acquire(table->pagetable_lock);
+  for(int i = 0; i < 1024; i++)
+  {
+    if(hashtable_getsize(table->maintable) == 0)
+    {
+      break;
+    }
+    char* index = int_to_byte_string(i);
+    struct hashtable* subtable = (struct hashtable*) 
+        hashtable_find(table->maintable, index, strlen(index));
+    for(int j = 0; j < 1024; j++)
+    {
+      if(hashtable_getsize(subtable) == 0)
+      {
+        break;
+      }
+      char* subindex = int_to_byte_string(j);
+      struct pagetable_entry* entry = (struct pagetable_entry*)
+            hashtable_find(subtable, subindex, strlen(subindex));
+
+      if(!entry->flags & PAGETABLE_VALID)
+      {
+	hashtable_remove(subtable, subindex, strlen(subindex));
+	kfree(entry);
+        continue;
+      }
+
+      if(entry->flags & PAGETABLE_INMEM)
+      {
+        if(coremap_lock_acquire(entry->addr << 12))
+        {
+          coremap_free_page(entry->addr << 12);
+          swap_free(entry->swap);
+        } else {
+          ref++;
+        }
+      } else {
+	swap_free(entry->swap);
+      }
+    }
+  }
+  lock_release(table->pagetable_lock);
+  return ref;
+}
+
 int pagetable_destroy(struct pagetable* table)
 {
   lock_acquire(table->pagetable_lock);
@@ -192,6 +240,7 @@ int pagetable_destroy(struct pagetable* table)
       char* subindex = int_to_byte_string(j);
       struct pagetable_entry* entry = (struct pagetable_entry*)
             hashtable_remove(subtable, subindex, strlen(subindex));
+
       kfree(entry);
     }
     hashtable_destroy(subtable);

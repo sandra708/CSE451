@@ -54,6 +54,12 @@ as_create(void)
 	 * Initialize as needed.
 	 */
 
+	as->pages = pagetable_create();
+	as->destroying = false;
+	as->destroy_count = 0;
+	as->destroy_lock = lock_create("ADDRESS SPACE DESTROY");
+	as->destroy_cv = cv_create("ADDRESS SPACE DESTROY");
+
 	return as;
 }
 
@@ -84,7 +90,22 @@ as_destroy(struct addrspace *as)
 	 * Clean up as needed.
 	 */
 
-	kfree(as);
+	/* We produce a reference count of pages which are being destroyed 
+	 * by other processes (due to swap conflicts) */
+	as->destroy_count = 0;
+	as->destroying = true;
+	int count = pagetable_free_all(as->pages);
+
+	/* We wait until we're notified that all the other threads have finished destroying the extra pages */
+	lock_acquire(as->destroy_lock);
+	as->destroy_count += count;
+	while(as->destroy_count > 0){
+		cv_wait(as->destroy_cv, as->destroy_lock);
+	}
+	lock_release(as->destroy_lock);
+
+	pagetable_destroy(as->pages);
+
 }
 
 void

@@ -1,5 +1,7 @@
 #include <types.h>
 #include <synch.h>
+#include <proc.h>
+#include <addrspace.h>
 #include <vm.h>
 #include <coremap.h>
 #include <pagetable.h>
@@ -8,14 +10,14 @@
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress){
-  struct proc *cur = curproc; 
-  if(cur == NULL)
+  struct addrspace *as = proc_getas(); 
+  if(as == NULL)
   {
 		return 1;
 	}
   if (faulttype < 2)
   {
-    struct pagetable_entry *newentry = pagetable_lookup(cur->pages, faultaddress);
+    struct pagetable_entry *newentry = pagetable_lookup(as->pages, faultaddress);
 	// pull from disk or grow stack
     if (newentry == 0)
     {

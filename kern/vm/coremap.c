@@ -7,6 +7,7 @@
 #include <synch.h>
 #include <pid.h>
 #include <proc.h>
+#include <addrspace.h>
 #include <coremap.h>
 #include <swap.h>
 #include <vm.h>
@@ -125,12 +126,14 @@ locate_swap(unsigned int *idx){
 
 static 
 void
-coremap_swap_page_out(unsigned int core_idx){
-	(void) core_idx;
+coremap_swap_page_out(unsigned int core_idx){	
 	userptr_t vaddr = coremap[core_idx].vaddr;
 
 	struct proc *proc = pid_get_proc(pids, coremap[core_idx].pid);
-	struct pagetable_entry *entry = pagetable_lookup(proc->pages, (vaddr_t) vaddr);
+	spinlock_acquire(&proc->p_lock);
+	struct addrspace *as = proc->p_addrspace;
+	spinlock_release(&proc->p_lock);
+	struct pagetable_entry *entry = pagetable_lookup(as->pages, (vaddr_t) vaddr);
 	if(entry == NULL)
 		return;
 
@@ -156,6 +159,14 @@ coremap_swap_page_out(unsigned int core_idx){
 	}
 
 	spinlock_release(&entry->lock);
+
+	// notify address space if its waiting to destroy safely
+	lock_acquire(as->destroy_lock);
+	if(as->destroying){
+		as->destroy_count--;
+		cv_broadcast(as->destroy_cv, as->destroy_lock);
+	}
+	lock_release(as->destroy_lock);
 }
 
 paddr_t

@@ -34,7 +34,7 @@
  * Address space structure and operations.
  */
 
-
+#include <pagetable.h>
 #include <vm.h>
 #include "opt-dumbvm.h"
 
@@ -59,6 +59,14 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
         /* Put stuff here for your VM system */
+	struct pagetable *pages; /* the page table for this address space */
+
+	/* Stuff related to destroying the address space without causing conflicts with demand paging */
+	bool destroying;
+	int destroy_count;
+	struct lock *destroy_lock;
+	struct cv *destroy_cv;
+
 	vaddr_t heap_end;
 	vaddr_t heap_start;
 #endif

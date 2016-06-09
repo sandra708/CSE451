@@ -9,7 +9,7 @@
 #include <coremap.h>
 #include <swap.h>
 
-struct pagetable{
+struct pagetable {
   struct hashtable *maintable;
   struct lock *pagetable_lock;
 };
@@ -37,6 +37,8 @@ struct pagetable_entry
 bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr);
 
 bool pagetable_remove(struct pagetable* table, vaddr_t vaddr);
+
+int pagetable_free_all(struct pagetable* table);
 
 int pagetable_destroy(struct pagetable* table);
 
