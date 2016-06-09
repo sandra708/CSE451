@@ -68,6 +68,9 @@ struct addrspace {
 	struct lock *destroy_lock;
 	struct cv *destroy_cv;
 
+	/* Ignore READ_ONLY markers; everything is writable */
+	bool loading;
+
 	vaddr_t heap_end;
 	vaddr_t heap_start;
 #endif

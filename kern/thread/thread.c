@@ -46,6 +46,7 @@
 #include <threadprivate.h>
 #include <proc.h>
 #include <current.h>
+#include <clock.h>
 #include <synch.h>
 #include <addrspace.h>
 #include <mainbus.h>
@@ -66,6 +67,10 @@ struct wchan {
 DECLARRAY(cpu, static __UNUSED inline);
 DEFARRAY(cpu, static __UNUSED inline);
 static struct cpuarray allcpus;
+
+struct spinlock tlbshootdown_lock;
+struct tlbshootdown shootdown;
+unsigned tlb_count;
 
 /* Used to wait for secondary CPUs to come online. */
 static struct semaphore *cpu_startup_sem;
@@ -403,6 +408,11 @@ thread_bootstrap(void)
 	if(execv_lock == NULL) {
 		panic("failed to create execv lock in thread_bootstrap");
 	}
+
+	/* Initialize the necessary TLB shootdown fields */
+	spinlock_init(&tlbshootdown_lock);
+	tlb_count = 0;
+	shootdown.badaddr = 0;
 	/* Done */
 }
 
@@ -1300,6 +1310,9 @@ interprocessor_interrupt(void)
 			vm_tlbshootdown(&curcpu->c_shootdown[i]);
 		}
 		curcpu->c_numshootdown = 0;
+		spinlock_acquire(&tlbshootdown_lock);
+		tlb_count++;
+		spinlock_release(&tlbshootdown_lock);
 	}
 
 	curcpu->c_ipi_pending = 0;
@@ -1351,11 +1364,32 @@ thread_join(struct thread * child)
 /* include in vm.h; move code to thread.c to be able to use cpu array */
 void vm_tlbshootdown_all(vaddr_t badaddr){
 	unsigned numcpus = cpuarray_num(&allcpus);
+
+	spinlock_acquire(&tlbshootdown_lock);
+	while(tlb_count != 0){
+		spinlock_release(&tlbshootdown_lock);
+		clocksleep(0.02); //yes, we should use a cv
+		spinlock_acquire(&tlbshootdown_lock);
+	}
+
+	shootdown.badaddr = badaddr;
+	tlb_count++;
+	spinlock_release(&tlbshootdown_lock);
+
 	for(unsigned i = 0; i < numcpus; i++){
 		struct cpu *target = cpuarray_get(&allcpus, i);
-		struct tlbshootdown shootdown;
-		shootdown.badaddr = badaddr;
+		
 		ipi_tlbshootdown(target, &shootdown);
-		// protect the stack pointer by waiting for interrupt to complete
 	}
+
+	spinlock_acquire(&tlbshootdown_lock);
+	while(tlb_count != numcpus + 1){
+		spinlock_release(&tlbshootdown_lock);
+		clocksleep(0.02);
+		spinlock_acquire(&tlbshootdown_lock);
+	}
+
+	tlb_count = 0;
+
+	spinlock_release(&tlbshootdown_lock);
 }

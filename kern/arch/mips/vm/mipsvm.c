@@ -153,21 +153,27 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     //Exception READ-ONLY
     struct pagetable_entry *newentry = pagetable_lookup(as->pages, faultaddress);
     bool map = coremap_lock_acquire(newentry->addr << 12);
-    if(!map) // the memory will become invalid shortly
-      return 1;    
-    if(!(newentry->flags & PAGETABLE_WRITEABLE))
+    if(!map) 
+      // the memory will become invalid shortly 
+      // return out of trap handler without fixing anything and hope for better luck next time
+      return 0;    
+    if(!(newentry->flags & PAGETABLE_WRITEABLE) && !as->loading)
+    { // invalid access 
       return 1;
+    }
     newentry->flags |= PAGETABLE_DIRTY;
 
     coremap_mark_page_dirty(newentry->addr << 12);
-    coremap_lock_release(newentry->addr << 12);
 
     uint32_t tlb_hi = faultaddress;
     uint32_t tlb_lo = (newentry->addr << 12) | (TLBLO_VALID | TLBLO_DIRTY);
     int tlb_idx = tlb_probe(tlb_hi, 0);
     if(tlb_idx < 0) // entry has been invalidated
-      return 1;
-    tlb_write(tlb_hi, tlb_lo, tlb_idx);
+      tlb_random(tlb_hi, tlb_lo);
+    else 
+      tlb_write(tlb_hi, tlb_lo, tlb_idx);
+
+    coremap_lock_release(newentry->addr << 12);
     return 0;
   }
 }

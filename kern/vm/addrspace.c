@@ -210,7 +210,7 @@ as_prepare_load(struct addrspace *as)
 	 * Write this.
 	 */
 
-	(void)as;
+	as->loading = true;
 	return 0;
 }
 
@@ -221,7 +221,9 @@ as_complete_load(struct addrspace *as)
 	 * Write this.
 	 */
 
-	(void)as;
+	// revoke special writing privileges; then flush the TLB
+	as->loading = false;
+	as_activate();
 	return 0;
 }
 
@@ -235,6 +237,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
-	return as_define_region(as, (*stackptr)-8192, 4096*3, 1, 1, 0);
+	/* Initialize three pages for the stack */
+	return as_define_region(as, (*stackptr) - 4096 * 3, 4096*3, 1, 1, 0);
 }
 

@@ -142,8 +142,10 @@ coremap_swap_page_out(unsigned int core_idx){
 		unsigned int disk_idx = entry->swap;
 		entry->flags &= ~(PAGETABLE_DIRTY);
 		coremap[core_idx].flags &= ~(COREMAP_DIRTY);
-		vm_tlbshootdown_all((vaddr_t) coremap[core_idx].vaddr);
 		spinlock_release(&entry->lock);
+
+		// shootdown happens outside the spinlock, as it is sending interrupts to everyone (including curcpu)
+		vm_tlbshootdown_all((vaddr_t) coremap[core_idx].vaddr);
 
 		paddr_t paddr = coremap_untranslate(core_idx);
 		void* kvaddr = (void*) PADDR_TO_KVADDR(paddr);
@@ -162,7 +164,6 @@ coremap_swap_page_out(unsigned int core_idx){
 	lock_release(as->destroy_lock);
 
 	entry->flags &= ~(PAGETABLE_DIRTY);
-	vm_tlbshootdown_all((vaddr_t) coremap[core_idx].vaddr);
 	entry->flags &= ~(PAGETABLE_INMEM);
 
 	// free disk and invalidate entirely if requested
@@ -172,6 +173,8 @@ coremap_swap_page_out(unsigned int core_idx){
 	}
 
 	spinlock_release(&entry->lock);
+
+	vm_tlbshootdown_all((vaddr_t) coremap[core_idx].vaddr);
 }
 
 paddr_t
