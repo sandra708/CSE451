@@ -17,6 +17,8 @@
 paddr_t base;
 paddr_t bound;
 
+struct spinlock tlb_lock;
+
 // depends on the page size being 4096 KB
 #define VM_PAGEOFFSET 12
 
@@ -24,6 +26,7 @@ void
 vm_bootstrap(){
 	coremap_bootstrap();
 	swap_bootstrap(PAGE_SIZE);
+	spinlock_init(&tlb_lock);
 }
 
 void
@@ -107,13 +110,24 @@ coremap_translate(paddr_t paddr){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *tlbshootdown){
+	spinlock_acquire(&tlb_lock);
 	int tlb_idx = tlb_probe(tlbshootdown->badaddr, 0);
 	if(tlb_idx >= 0){
 		uint32_t tlb_hi = MIPS_KSEG2 | (tlb_idx << 12);
 		uint32_t tlb_lo = 0;
 		tlb_write(tlb_hi, tlb_lo, tlb_idx);
 	}
-	//kfree((void*) tlbshootdown);
+	spinlock_release(&tlb_lock);
+}
+
+void vm_flush_tlb(void){
+	spinlock_acquire(&tlb_lock);
+	for(uint32_t i = 0; i < NUM_TLB; i++){
+		uint32_t tlb_hi = MIPS_KSEG2 | (i << 12); // out of range
+		uint32_t tlb_lo = 0; // shouldn't matter
+		tlb_write(tlb_hi, tlb_lo, i);
+	}
+	spinlock_release(&tlb_lock);
 }
 
 /* Fault handling function called by trap code */
@@ -123,17 +137,21 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
   {
     return 1;
   }
+  struct pagetable_entry *newentry = pagetable_lookup(as->pages, faultaddress);
   if (faulttype < 2)
   {
-    struct pagetable_entry *newentry = pagetable_lookup(as->pages, faultaddress);
     if (newentry == NULL)
     {
       // no page exists
       pagetable_pull(as->pages, faultaddress, 0);
       spinlock_acquire(&newentry->lock);
+      spinlock_acquire(&tlb_lock);
       uint32_t tlb_hi = faultaddress;
       uint32_t tlb_lo = (newentry->addr << 12) | TLBLO_VALID;
-      tlb_random(tlb_hi, tlb_lo);
+      int tlb_idx = tlb_probe(tlb_hi, 0);
+      if(tlb_idx < 0)
+        tlb_random(tlb_hi, tlb_lo);
+      spinlock_release(&tlb_lock);
       spinlock_release(&newentry->lock);
       return 0;
     } 
@@ -142,16 +160,18 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     {
       pagetable_swap_in(newentry, faultaddress, as->pid);
     }    
+    spinlock_acquire(&tlb_lock);
     uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
     uint32_t tlb_lo = (newentry->addr << 12) | TLBLO_VALID;
-    tlb_random(tlb_hi, tlb_lo);
+    if(tlb_probe(tlb_hi, 0) < 0)
+      tlb_random(tlb_hi, tlb_lo);
+    spinlock_release(&tlb_lock);
     spinlock_release(&newentry->lock); 
     return 0;
   }
   else
   {
     //Exception READ-ONLY
-    struct pagetable_entry *newentry = pagetable_lookup(as->pages, faultaddress);
     bool map = coremap_lock_acquire(newentry->addr << 12);
     if(!map) 
       // the memory will become invalid shortly 
@@ -165,6 +185,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 
     coremap_mark_page_dirty(newentry->addr << 12);
 
+    spinlock_acquire(&tlb_lock);
     uint32_t tlb_hi = faultaddress;
     uint32_t tlb_lo = (newentry->addr << 12) | (TLBLO_VALID | TLBLO_DIRTY);
     int tlb_idx = tlb_probe(tlb_hi, 0);
@@ -172,6 +193,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
       tlb_random(tlb_hi, tlb_lo);
     else 
       tlb_write(tlb_hi, tlb_lo, tlb_idx);
+    spinlock_release(&tlb_lock);
 
     coremap_lock_release(newentry->addr << 12);
     return 0;

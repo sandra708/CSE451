@@ -138,11 +138,7 @@ as_activate(void)
 	 * Write this.
 	 */
 	/* Invalidate all of the tlb entries */
-	for(uint32_t i = 0; i < NUM_TLB; i++){
-		uint32_t tlb_hi = MIPS_KSEG2 | (i << 12); // out of range
-		uint32_t tlb_lo = 0; // shouldn't matter
-		tlb_write(tlb_hi, tlb_lo, i);
-	}
+	vm_flush_tlb();
 }
 
 void
@@ -173,15 +169,15 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	 * Write this.
 	 */
   uint8_t flags = 0;
-  if (executable == 1)
+  if (executable > 0)
   {
     flags += 64;
   }
-  if (writeable == 1)
+  if (writeable > 0)
   {
     flags += 32;
   }
-  if (readable == 1)
+  if (readable > 0)
   {
     flags += 16;
   }
@@ -223,7 +219,7 @@ as_complete_load(struct addrspace *as)
 
 	// revoke special writing privileges; then flush the TLB
 	as->loading = false;
-	as_activate();
+	vm_flush_tlb();
 	return 0;
 }
 

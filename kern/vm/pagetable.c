@@ -99,24 +99,23 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
 
   int subindex = frame & 1023;
 
-  lock_acquire(table->pagetable_lock);
+  // we can get away without sleeplocking, because this particular vaddr-path won't change while we're looking up
+  // either it is valid or it isn't, but it can only be invalidated while it is not in memory and by the given process
+
   if (!bitmap_isset(table->valids, mainindex))
   {
-    lock_release(table->pagetable_lock);
     return NULL;
   }
 
   struct pagetable_subtable *subtable = table->ptr->entries[mainindex];
   if(!bitmap_isset(subtable->valids, subindex))
   {
-    lock_release(table->pagetable_lock);
     return NULL;
   }
 
   struct pagetable_entry* entry = subtable->ptr->entries[subindex];
   if (entry == NULL)
   {
-    lock_release(table->pagetable_lock);
     return NULL;
   }
 
@@ -127,7 +126,6 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
     entry = NULL;
   }
 
-  lock_release(table->pagetable_lock);
   return entry;
 }
 

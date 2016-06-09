@@ -61,5 +61,8 @@ void vm_tlbshootdown(const struct tlbshootdown *);
 /* TLB shootdown handler - will interrupt every cpu; implemented in thread.c */
 void vm_tlbshootdown_all(vaddr_t badaddr);
 
+/* flush the TLB */
+void vm_flush_tlb(void);
+
 
 #endif /* _VM_H_ */
