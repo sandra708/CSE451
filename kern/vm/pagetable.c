@@ -42,11 +42,11 @@ void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid)
   coremap_lock_release(entry->addr << 12);
 }
 
-paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr)
+paddr_t pagetable_pull(struct pagetable* table, vaddr_t addr, uint8_t flags)
 {
   struct proc* cur = curproc;
 	paddr_t newpage = coremap_allocate_page(false, cur->pid, 1, (userptr_t) addr);
-  pagetable_add(table, addr, newpage);
+  pagetable_add(table, addr, newpage, flags);
   coremap_lock_release(newpage);
   lock_release(table->pagetable_lock);
   return newpage;
@@ -68,7 +68,10 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
   char* subkey = int_to_byte_string(subindex);
   struct pagetable_entry* entry = (struct pagetable_entry*) 
         hashtable_find(subtable, subkey, strlen(subkey));
-
+  if (entry == NULL)
+  {
+    return NULL;
+  }
   // clear invalid entry
   if(!entry->flags | PAGETABLE_VALID){
     kfree(entry);
@@ -84,7 +87,7 @@ struct pagetable_entry *pagetable_lookup(struct pagetable* table, vaddr_t addr)
   return entry;
 }
 
-bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
+bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr, uint8_t flags)
 {
   lock_acquire(table->pagetable_lock);
   vaddr_t frame = vaddr >> 12;
@@ -109,7 +112,7 @@ bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
     if(err){
 	// TODO: out of swap space
     }
-    entry->flags = PAGETABLE_VALID | PAGETABLE_INMEM;
+    entry->flags = flags | PAGETABLE_VALID | PAGETABLE_INMEM;
     lock_release(table->pagetable_lock);
     return false;
   }
@@ -118,7 +121,7 @@ bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr)
   if(err){
 	// TODO: out of swap space
   }
-  entry->flags = PAGETABLE_VALID | PAGETABLE_INMEM;
+  entry->flags = flags | PAGETABLE_VALID | PAGETABLE_INMEM;
   lock_release(table->pagetable_lock);
   return true;
 }
@@ -238,10 +241,18 @@ bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, i
 
         swap_allocate(&copy_entry->swap);
         swap_page_out((void*) PADDR_TO_KVADDR(copy_entry->addr << 12), copy_entry->swap);
-	copy_entry->flags = PAGETABLE_VALID | PAGETABLE_INMEM;
-	if(entry->flags | PAGETABLE_READ_ONLY)
+        copy_entry->flags = PAGETABLE_VALID | PAGETABLE_INMEM;
+	      if(entry->flags | PAGETABLE_READABLE)
         {
-          copy_entry->flags |= PAGETABLE_READ_ONLY;
+          copy_entry->flags |= PAGETABLE_READABLE;
+        }
+        if(entry->flags | PAGETABLE_WRITEABLE)
+        {
+          copy_entry->flags |= PAGETABLE_WRITEABLE;
+        }
+        if(entry->flags | PAGETABLE_EXECUTABLE)
+        {
+          copy_entry->flags |= PAGETABLE_EXECUTABLE;
         }
         spinlock_init(&copy_entry->lock);
 

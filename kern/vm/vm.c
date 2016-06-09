@@ -9,6 +9,7 @@
 #include <vm.h>
 #include <coremap.h>
 #include <pagetable.h>
+#include <thread.h>
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress){
@@ -23,7 +24,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     if (newentry == NULL)
     {
       // no page exists
-      pagetable_pull(as->pages, faultaddress);
+      pagetable_pull(as->pages, faultaddress, 0);
       spinlock_acquire(&newentry->lock);
       uint32_t tlb_hi = faultaddress;
       uint32_t tlb_lo = (newentry->addr << 12) | TLBLO_VALID;
@@ -49,7 +50,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     bool map = coremap_lock_acquire(newentry->addr << 12);
     if(!map) // the memory will become invalid shortly
       return 1;    
-    if(newentry->flags & PAGETABLE_READ_ONLY)
+    if(!(newentry->flags & PAGETABLE_WRITEABLE))
       return 1;
     newentry->flags |= PAGETABLE_DIRTY;
 
@@ -61,7 +62,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     int tlb_idx = tlb_probe(tlb_hi, 0);
     if(tlb_idx < 0) // entry has been invalidated
       return 1;
-
     tlb_write(tlb_hi, tlb_lo, tlb_idx);
     return 0;
   }
@@ -98,12 +98,4 @@ void vm_tlbshootdown(const struct tlbshootdown *tlbshootdown){
 	kfree((void*) tlbshootdown);
 }
 
-/* include in vm.h; move code to thread.c to be able to use cpu array*/
-void vm_tlbshootdown_all(vaddr_t badaddr){
-	unsigned numcpus = cpuarray_num(&allcpus);
-	for(unsigned i = 0; i < numcpus; i++){
-		struct tlbshootdown *tlbshootdown = kmalloc(sizeof(tlbshootdown));
-		tlbshootdown->badaddr = badaddr;
-		ipi_tlbshootdown(cpuarray_get(i), tlbshootdown);
-	}
-}
+

@@ -172,14 +172,33 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	/*
 	 * Write this.
 	 */
-
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
-	(void)readable;
-	(void)writeable;
-	(void)executable;
-	return ENOSYS;
+  uint8_t flags = 0;
+  if (executable == 1)
+  {
+    flags += 64;
+  }
+  if (writeable == 1)
+  {
+    flags += 32;
+  }
+  if (readable == 1)
+  {
+    flags += 16;
+  }
+  for(vaddr_t v = vaddr >> 12 << 12; v < v + memsize; v += 4096)
+  {
+    struct pagetable_entry* resident = pagetable_lookup(as->pages, v);
+    if (resident == NULL)
+    {
+      paddr_t newaddr = pagetable_pull(as->pages, v, flags);
+      if (newaddr == 0)
+      {
+        return ENOMEM;
+      }
+    }
+    resident->flags = resident->flags % 16 + flags;
+  }
+	return 0;
 }
 
 int

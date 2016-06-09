@@ -18,7 +18,9 @@ struct pagetable {
 #define PAGETABLE_INMEM 2
 #define PAGETABLE_DIRTY 4
 #define PAGETABLE_REQUEST_FREE 8
-#define PAGETABLE_READ_ONLY 16
+#define PAGETABLE_READABLE 16
+#define PAGETABLE_WRITEABLE 32
+#define PAGETABLE_EXECUTABLE 64
 
 struct pagetable_entry{
 	struct spinlock lock;
@@ -31,7 +33,7 @@ struct pagetable_entry{
 void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid);
 
 /* Allocates a new page in physical memory, adjusting the table entry as needed */
-paddr_t pagetable_pull(struct pagetable* table, vaddr_t vaddr);
+paddr_t pagetable_pull(struct pagetable* table, vaddr_t vaddr, uint8_t flags);
 
 /* Creates a pagetable tree structure */
 struct pagetable *pagetable_create(void);
@@ -41,7 +43,7 @@ struct pagetable_entry
 *pagetable_lookup(struct pagetable* table, vaddr_t vaddr);
 
 /* Helper for pagetable_pull */
-bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr);
+bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr, uint8_t flags);
 
 /* Removes the page of the given vaddr, freeing space in memory and on disk */
 bool pagetable_remove(struct pagetable* table, vaddr_t vaddr);
