@@ -360,6 +360,7 @@ hashtable_remove(struct hashtable* h, char* key, unsigned int keylen)
         shrink(h);
     }
     void* res = removed->val;
+    kfree(removed->key); // we have to free the string key
     kfree(removed);
     return res;
 }
@@ -419,21 +420,29 @@ hashtable_assertvalid(struct hashtable* h)
     KASSERT(count == h->size);
 }
 
+// the original did not handle 0 bytes well
 char* int_to_byte_string(int input)
 {
-  char* digits = kmalloc(21);
+  char *digits = kmalloc(sizeof(int) + 2);
+  int_to_byte_string_nomalloc(input, digits);
+  return digits;
+}
+
+void int_to_byte_string_nomalloc(int input, char* digits)
+{
   if (digits == NULL)
   {
-    return NULL;
+    return;
   }
-  int digitcount = 0;
-  while(input > 0)
+  unsigned int digitcount = 0;
+  bool cond = true;
+  while(cond && digitcount < sizeof(int) + 2)
   {
-    digits[digitcount] = input % 256;
-    input /= 256;
+    digits[digitcount] = (input % 128 << 1) | 1;
+    input /= 128;
     digitcount++;
+    cond = (input != 0);
   }
   digits[digitcount] = 0;
-  return digits;
 }
 

@@ -185,10 +185,11 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
   {
     flags += 16;
   }
-  for(vaddr_t v = vaddr >> 12 << 12; v < v + memsize; v += 4096)
+  vaddr_t page = vaddr >> 12 << 12;
+  for(vaddr_t v = page; v < page + memsize; v += 4096)
   {
     struct pagetable_entry* resident = pagetable_lookup(as->pages, v);
-    if (resident == NULL)
+    while (resident == NULL)
     {
       paddr_t newaddr = pagetable_pull(as->pages, v, flags);
       if (newaddr == 0)

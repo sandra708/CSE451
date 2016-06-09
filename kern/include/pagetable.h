@@ -10,15 +10,30 @@
 #include <coremap.h>
 #include <swap.h>
 
-struct pagetable {
-  struct bitmap *valids;
-  struct pagetable_subtable *entries[1024];
-  struct lock *pagetable_lock;
+struct pagetable_entry{
+	struct spinlock lock;
+	paddr_t addr;
+	unsigned int swap;
+	uint8_t flags;
+};
+
+struct pagetable_subptr {
+  struct pagetable_entry *entries[1024];
 };
 
 struct pagetable_subtable {
   struct bitmap *valids;
-  struct pagetable_entry *entries[1024];
+  struct pagetable_subptr *ptr;
+};
+
+struct pagetable_ptr {
+  struct pagetable_subtable *entries[1024];
+};
+
+struct pagetable {
+  struct bitmap *valids;
+  struct pagetable_ptr *ptr;
+  struct lock *pagetable_lock;
 };
 
 #define PAGETABLE_VALID 1
@@ -29,13 +44,6 @@ struct pagetable_subtable {
 #define PAGETABLE_WRITEABLE 32
 #define PAGETABLE_EXECUTABLE 64
 #define PAGETABLE_REQUEST_DESTROY 128
-
-struct pagetable_entry{
-	struct spinlock lock;
-	paddr_t addr;
-	unsigned int swap;
-	uint8_t flags;
-};
 
 /* Swaps the given entry from disk into memory, adjusting the entry as needed */
 void pagetable_swap_in(struct pagetable_entry *entry, vaddr_t vaddr, int pid);

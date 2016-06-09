@@ -36,6 +36,8 @@ int hashtable_isempty(struct hashtable* h);
 unsigned int hashtable_getsize(struct hashtable* h);
 void hashtable_destroy(struct hashtable* h);
 void hashtable_assertvalid(struct hashtable* h);
-char* int_to_byte_string(int input);
+char *int_to_byte_string(int input);
+void int_to_byte_string_nomalloc(int input, char* output);
+
 
 #endif /* _HASHTABLE_H_ */
