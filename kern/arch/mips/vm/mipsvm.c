@@ -17,6 +17,7 @@
 paddr_t base;
 paddr_t bound;
 
+// TLB context and lock
 struct spinlock tlb_lock;
 
 // depends on the page size being 4096 KB
@@ -27,6 +28,7 @@ vm_bootstrap(){
 	coremap_bootstrap();
 	swap_bootstrap(PAGE_SIZE);
 	spinlock_init(&tlb_lock);
+	vm_pid = 0;
 }
 
 void
@@ -146,11 +148,13 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
       pagetable_pull(as->pages, faultaddress, 0);
       spinlock_acquire(&newentry->lock);
       spinlock_acquire(&tlb_lock);
-      uint32_t tlb_hi = faultaddress;
+      uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
       uint32_t tlb_lo = (newentry->addr << 12) | TLBLO_VALID;
       int tlb_idx = tlb_probe(tlb_hi, 0);
       if(tlb_idx < 0)
         tlb_random(tlb_hi, tlb_lo);
+      else
+        tlb_write(tlb_hi, tlb_lo, tlb_idx);
       spinlock_release(&tlb_lock);
       spinlock_release(&newentry->lock);
       return 0;
@@ -163,8 +167,13 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     spinlock_acquire(&tlb_lock);
     uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
     uint32_t tlb_lo = (newentry->addr << 12) | TLBLO_VALID;
-    if(tlb_probe(tlb_hi, 0) < 0)
+    int tlb_idx = tlb_probe(tlb_hi, 0);
+    if(tlb_idx < 0)
+    {
       tlb_random(tlb_hi, tlb_lo);
+    }
+    else 
+      tlb_write(tlb_hi, tlb_lo, tlb_idx);
     spinlock_release(&tlb_lock);
     spinlock_release(&newentry->lock); 
     return 0;
@@ -186,7 +195,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     coremap_mark_page_dirty(newentry->addr << 12);
 
     spinlock_acquire(&tlb_lock);
-    uint32_t tlb_hi = faultaddress;
+    uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
     uint32_t tlb_lo = (newentry->addr << 12) | (TLBLO_VALID | TLBLO_DIRTY);
     int tlb_idx = tlb_probe(tlb_hi, 0);
     if(tlb_idx < 0) // entry has been invalidated

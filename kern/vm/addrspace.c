@@ -126,7 +126,7 @@ as_activate(void)
 	struct addrspace *as;
 
 	as = proc_getas();
-	if (as == NULL) {
+	if (as == NULL || as->pid == vm_pid) {
 		/*
 		 * Kernel thread without an address space; leave the
 		 * prior address space in place.
@@ -138,6 +138,7 @@ as_activate(void)
 	 * Write this.
 	 */
 	/* Invalidate all of the tlb entries */
+	vm_pid = as->pid;
 	vm_flush_tlb();
 }
 
