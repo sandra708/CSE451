@@ -108,7 +108,12 @@ int sys_execv(const char* program_name, char** args) {
 	}
 
 	//kprintf("Creating address space\n");
-	as = as_create();
+	struct thread *cur = curthread;
+	if(cur->t_proc != NULL)
+		as = as_create(cur->t_proc->pid);
+	else
+		as = as_create(0);
+
 	if(as == NULL) {
 		for(j = 0; j < argc; j++)
 			kfree(kargs[j]);

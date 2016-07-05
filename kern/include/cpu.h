@@ -61,6 +61,7 @@ struct cpu {
 	struct threadlist c_zombies;	/* List of exited threads */
 	unsigned c_hardclocks;		/* Counter of hardclock() calls */
 	unsigned c_spinlocks;		/* Counter of spinlocks held */
+	int c_tlb_pid;			/* Process represented in TLB */
 
 	/*
 	 * Accessed by other cpus.

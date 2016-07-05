@@ -386,7 +386,7 @@ proc_create_fork(const char *name, struct proc *parent, int *error){
 	spinlock_release(&parent->p_lock);
 
 	if(space != NULL){
-		as_copy(space, &proc->p_addrspace);
+		as_copy(space, &proc->p_addrspace, proc->pid);
 	}
 
 	// copy the current working directory
@@ -398,10 +398,11 @@ proc_create_fork(const char *name, struct proc *parent, int *error){
   if(parent->files != NULL)
   {
     proc->files = hashtable_create();
-	  if(proc->files == NULL) {
-		  *error = ENOMEM;
+    if(proc->files == NULL) {
+      *error = ENOMEM;
       proc_exit(proc, 0);
     }
+
     for(int i = 3; i < parent->next_fd; i++)
     {
       char* fdkey = int_to_byte_string(i);

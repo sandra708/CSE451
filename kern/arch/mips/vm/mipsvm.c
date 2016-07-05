@@ -28,7 +28,6 @@ vm_bootstrap(){
 	coremap_bootstrap();
 	swap_bootstrap(PAGE_SIZE);
 	spinlock_init(&tlb_lock);
-	vm_pid = 0;
 }
 
 void
@@ -122,12 +121,21 @@ void vm_tlbshootdown(const struct tlbshootdown *tlbshootdown){
 	spinlock_release(&tlb_lock);
 }
 
-void vm_flush_tlb(void){
+void vm_flush_tlb(int pid){
+	struct cpu *cur = curthread->t_cpu;
+
 	spinlock_acquire(&tlb_lock);
-	for(uint32_t i = 0; i < NUM_TLB; i++){
-		uint32_t tlb_hi = MIPS_KSEG2 | (i << 12); // out of range
-		uint32_t tlb_lo = 0; // shouldn't matter
-		tlb_write(tlb_hi, tlb_lo, i);
+
+	/* Check if the pid doesn't match, invalidate the whole tlb */
+	if(pid == 0 || pid != cur->c_tlb_pid){
+		for(uint32_t i = 0; i < NUM_TLB; i++){
+			uint32_t tlb_hi = MIPS_KSEG2 | (i << 12); // out of range
+			uint32_t tlb_lo = 0; // shouldn't matter
+			tlb_write(tlb_hi, tlb_lo, i);
+		}
+		
+		if(pid != 0)
+			cur->c_tlb_pid = pid;
 	}
 	spinlock_release(&tlb_lock);
 }

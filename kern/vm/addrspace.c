@@ -44,7 +44,7 @@
  */
 
 struct addrspace *
-as_create(void)
+as_create(int pid)
 {
 	struct addrspace *as;
 
@@ -56,7 +56,7 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
-	as->pid = curproc->pid;
+	as->pid = pid;
 	as->pages = pagetable_create();
 
 	as->destroying = false;
@@ -68,11 +68,11 @@ as_create(void)
 }
 
 int
-as_copy(struct addrspace *old, struct addrspace **ret)
+as_copy(struct addrspace *old, struct addrspace **ret, int newpid)
 {
 	struct addrspace *newas;
 
-	newas = as_create();
+	newas = as_create(newpid);
 	if (newas==NULL) {
 		return ENOMEM;
 	}
@@ -126,7 +126,7 @@ as_activate(void)
 	struct addrspace *as;
 
 	as = proc_getas();
-	if (as == NULL || as->pid == vm_pid) {
+	if (as == NULL) {
 		/*
 		 * Kernel thread without an address space; leave the
 		 * prior address space in place.
@@ -138,8 +138,7 @@ as_activate(void)
 	 * Write this.
 	 */
 	/* Invalidate all of the tlb entries */
-	vm_pid = as->pid;
-	vm_flush_tlb();
+	vm_flush_tlb(as->pid);
 }
 
 void
@@ -220,7 +219,7 @@ as_complete_load(struct addrspace *as)
 
 	// revoke special writing privileges; then flush the TLB
 	as->loading = false;
-	vm_flush_tlb();
+	vm_flush_tlb(0);
 	return 0;
 }
 

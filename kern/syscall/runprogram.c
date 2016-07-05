@@ -69,7 +69,12 @@ runprogram(char *progname)
 	KASSERT(proc_getas() == NULL);
 
 	/* Create a new address space. */
-	as = as_create();
+	struct thread *cur = curthread;
+	if(cur->t_proc != NULL)
+		as = as_create(cur->t_proc->pid);
+	else
+		as = as_create(0);
+
 	if (as == NULL) {
 		vfs_close(v);
 		return ENOMEM;

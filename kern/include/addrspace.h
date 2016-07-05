@@ -117,8 +117,8 @@ struct addrspace {
  * functions are found in dumbvm.c.
  */
 
-struct addrspace *as_create(void);
-int               as_copy(struct addrspace *src, struct addrspace **ret);
+struct addrspace *as_create(int pid);
+int               as_copy(struct addrspace *src, struct addrspace **ret, int pid);
 void              as_activate(void);
 void              as_deactivate(void);
 void              as_destroy(struct addrspace *);

@@ -44,8 +44,6 @@
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
-int vm_pid;
-
 /* Initialization function */
 void vm_bootstrap(void);
 
@@ -62,8 +60,8 @@ void vm_tlbshootdown(const struct tlbshootdown *);
 /* TLB shootdown handler - will interrupt every cpu; implemented in thread.c */
 void vm_tlbshootdown_all(vaddr_t badaddr);
 
-/* flush the TLB */
-void vm_flush_tlb(void);
+/* flush the TLB if this pid doesn't match */
+void vm_flush_tlb(int pid);
 
 
 #endif /* _VM_H_ */

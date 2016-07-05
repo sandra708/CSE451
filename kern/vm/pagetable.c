@@ -151,8 +151,17 @@ bool pagetable_add(struct pagetable* table, vaddr_t vaddr, paddr_t paddr, uint8_
        //ENOMEM
        return false;
     }
-    bitmap_mark(table->valids, mainindex);
-    table->ptr->entries[mainindex] = subtable;
+    if(!bitmap_isset(table->valids, mainindex))
+    {
+      bitmap_mark(table->valids, mainindex);
+      table->ptr->entries[mainindex] = subtable;
+    }
+    else 
+    { // the subtable was allocated while we had released the lock
+      kfree(subtable->valids);
+      kfree(subtable->ptr);
+      kfree(subtable);
+    }
   } 
 
   if (!bitmap_isset(subtable->valids, subindex))
@@ -281,23 +290,30 @@ bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, i
         struct pagetable_entry *copy_entry = kmalloc(sizeof(struct pagetable_entry));
         vaddr_t vaddr = (i << 22) | (j << 12);
 
-        //TODO: do this without doing I/O across a spinlock
-        spinlock_acquire(&entry->lock); 
+	// protect against race condition with the coremap bringing in a new pag
+	// TODO: figure out how to do this best WITHOUT holding spinlocks
+	spinlock_acquire(&entry->lock);
         if(entry->flags & PAGETABLE_DIRTY)
         {
+          spinlock_release(&entry->lock);
           // force a write to disk
           swap_page_out((void*) PADDR_TO_KVADDR(entry->addr << 12), entry->swap);
-	  entry->flags &= ~(PAGETABLE_DIRTY);
         }
-        spinlock_release(&entry->lock);
-
+        else
+        {
+          spinlock_release(&entry->lock);
+        }
+        
+        // copy by bringing the old page's disk into the copy's memory segment
         copy_entry->addr = coremap_allocate_page(false, copypid, 1, (userptr_t) vaddr) >> 12;
         swap_page_in((void*) PADDR_TO_KVADDR(copy_entry->addr << 12), entry->swap);
 
+	// push the copy out to it's disk segment
         swap_allocate(&copy_entry->swap);
         swap_page_out((void*) PADDR_TO_KVADDR(copy_entry->addr << 12), copy_entry->swap);
         copy_entry->flags = PAGETABLE_VALID | PAGETABLE_INMEM;
-	      if(entry->flags | PAGETABLE_READABLE)
+        
+        if(entry->flags | PAGETABLE_READABLE)
         {
           copy_entry->flags |= PAGETABLE_READABLE;
         }
@@ -312,6 +328,7 @@ bool pagetable_copy(struct pagetable *old, int oldpid, struct pagetable *copy, i
         spinlock_init(&copy_entry->lock);
 
         lock_acquire(copy->pagetable_lock);
+        lock_acquire(old->pagetable_lock);
         bitmap_mark(copy_subtable->valids, j);
         copy_subtable->ptr->entries[j] = copy_entry;
         coremap_lock_release(copy_entry->addr << 12);
