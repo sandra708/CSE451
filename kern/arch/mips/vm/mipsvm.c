@@ -161,10 +161,15 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     {
       // no page exists
       
-      if(as->stack_base > faultaddress && as->heap_end < faultaddress)
+      if(!as->loading && faultaddress < as->heap_start)
+        return 1;
+      
+      if(!as->loading && as->stack_base > faultaddress && as->heap_end < faultaddress)
         as->stack_base = (faultaddress & PAGE_SIZE);
 
       pagetable_pull(as->pages, faultaddress, 0);
+      newentry = pagetable_lookup(as->pages, faultaddress);      
+
       spinlock_acquire(&newentry->lock);
       spinlock_acquire(&tlb_lock);
       uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
@@ -180,9 +185,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     } 
 
     spinlock_acquire(&newentry->lock);
-    if(!(newentry->flags & PAGETABLE_INMEM))
+    while(!(newentry->flags & PAGETABLE_INMEM))
     {
+      // don't hold spinlock across the swap-in process, since it may need to sleep
+      spinlock_release(&newentry->lock);
       pagetable_swap_in(newentry, faultaddress, as->pid);
+      spinlock_acquire(&newentry->lock);
     }    
     spinlock_acquire(&tlb_lock);
     uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
@@ -203,8 +211,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
   {
     //Exception READ-ONLY
     
-    // Require that the MODIFY address is within legally allocated space
-    if(as->stack_base > faultaddress &&  as->heap_end < faultaddress)
+    // Require that the MODIFY address is within legally allocated space (unless currently loading)
+    if(!as->loading && as->stack_base > faultaddress &&  as->heap_end < faultaddress)
       return 1;
 
     bool map = coremap_lock_acquire(newentry->addr << 12);

@@ -88,6 +88,19 @@ as_copy(struct addrspace *old, struct addrspace **ret, int newpid)
 	// don't call copy AFTER calling destroy
 	KASSERT(old->destroying == false);
 
+	// Insert the new address space into its process block, so it can be found
+	struct proc *proc = pid_get_proc(pids, newpid);
+	spinlock_acquire(&proc->p_lock);
+	// shouldn't happen, but just in case, fix the memory leak
+	while(proc->p_addrspace != NULL){
+		struct addrspace *oldas = proc->p_addrspace;
+		spinlock_release(&proc->p_lock);
+		as_destroy(oldas);
+		spinlock_acquire(&proc->p_lock);
+	}
+	proc->p_addrspace = newas;
+	spinlock_release(&proc->p_lock);
+
 	bool success = pagetable_copy(old->pages, old->pid, newas->pages, newas->pid);
 
 	if(!success){
@@ -205,15 +218,12 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
     resident->flags = resident->flags % 16 + flags;
   }
 
-  if(writeable == 0)
-  {
     as->heap_start = (page + memsize);
-    if(as->heap_start & 4096)
+    if(as->heap_start & (4096 - 1))
     {
-      as->heap_start = (as->heap_start + 4096) & 4096;
+      as->heap_start = (as->heap_start + 4096) & (~(4096 - 1));
     }
     as->heap_end = as->heap_start;
-  }
 	return 0;
 }
 
@@ -252,7 +262,16 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	as->stack_base = USERSTACK - 4096 * 3;
 	*stackptr = USERSTACK - 1;
 
+	/* Save heap information */
+	int heap_end = as->heap_end;
+	int heap_start = as->heap_start;
+
 	/* Initialize three pages for the stack */
-	return as_define_region(as, as->stack_base, 4096*3, 1, 1, 0);
+	int err = as_define_region(as, as->stack_base, 4096*3, 1, 1, 0);
+
+	as->heap_end = heap_end;
+	as->heap_start = heap_start;
+
+	return err;
 }
 

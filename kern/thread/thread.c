@@ -68,9 +68,9 @@ DECLARRAY(cpu, static __UNUSED inline);
 DEFARRAY(cpu, static __UNUSED inline);
 static struct cpuarray allcpus;
 
-struct spinlock tlbshootdown_lock;
-struct tlbshootdown shootdown;
-unsigned tlb_count;
+struct semaphore *tlb_shootdown_count;
+struct semaphore *tlb_shootdown_free;
+struct tlbshootdown tlb_shootdown;
 
 /* Used to wait for secondary CPUs to come online. */
 static struct semaphore *cpu_startup_sem;
@@ -411,9 +411,9 @@ thread_bootstrap(void)
 	}
 
 	/* Initialize the necessary TLB shootdown fields */
-	spinlock_init(&tlbshootdown_lock);
-	tlb_count = 0;
-	shootdown.badaddr = 0;
+	tlb_shootdown_count = sem_create("TLBSHOOTDOWN INTERRUPT COUNTER", 0);
+	tlb_shootdown_free = sem_create("TLBSHOOTDOWN LOCK", 1);
+	tlb_shootdown.badaddr = 0;
 	/* Done */
 }
 
@@ -1311,9 +1311,7 @@ interprocessor_interrupt(void)
 			vm_tlbshootdown(&curcpu->c_shootdown[i]);
 		}
 		curcpu->c_numshootdown = 0;
-		spinlock_acquire(&tlbshootdown_lock);
-		tlb_count++;
-		spinlock_release(&tlbshootdown_lock);
+		V(tlb_shootdown_count);
 	}
 
 	curcpu->c_ipi_pending = 0;
@@ -1366,31 +1364,19 @@ thread_join(struct thread * child)
 void vm_tlbshootdown_all(vaddr_t badaddr){
 	unsigned numcpus = cpuarray_num(&allcpus);
 
-	spinlock_acquire(&tlbshootdown_lock);
-	while(tlb_count != 0){
-		spinlock_release(&tlbshootdown_lock);
-		clocksleep(0.02); //yes, we should use a cv
-		spinlock_acquire(&tlbshootdown_lock);
-	}
+	P(tlb_shootdown_free);
 
-	shootdown.badaddr = badaddr;
-	tlb_count++;
-	spinlock_release(&tlbshootdown_lock);
+	tlb_shootdown.badaddr = badaddr;
 
 	for(unsigned i = 0; i < numcpus; i++){
 		struct cpu *target = cpuarray_get(&allcpus, i);
 		
-		ipi_tlbshootdown(target, &shootdown);
+		ipi_tlbshootdown(target, &tlb_shootdown);
 	}
 
-	spinlock_acquire(&tlbshootdown_lock);
-	while(tlb_count != numcpus + 1){
-		spinlock_release(&tlbshootdown_lock);
-		clocksleep(0.02);
-		spinlock_acquire(&tlbshootdown_lock);
+	for(unsigned i = 0; i <  numcpus; i++){
+		P(tlb_shootdown_count);
 	}
 
-	tlb_count = 0;
-
-	spinlock_release(&tlbshootdown_lock);
+	V(tlb_shootdown_free);
 }
