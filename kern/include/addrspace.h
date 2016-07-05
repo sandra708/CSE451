@@ -73,6 +73,7 @@ struct addrspace {
 
 	vaddr_t heap_end;
 	vaddr_t heap_start;
+	vaddr_t stack_base;
 #endif
 };
 

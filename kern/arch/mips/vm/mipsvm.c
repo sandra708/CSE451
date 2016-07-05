@@ -142,17 +142,28 @@ void vm_flush_tlb(int pid){
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress){
+  
+  /* Address out of bounds */
+  if(faultaddress >= USERSTACK)
+    return 1;
+ 
+  /* No address space found (kernel process) */
   struct addrspace *as = proc_getas(); 
   if(as == NULL)
   {
     return 1;
   }
+
   struct pagetable_entry *newentry = pagetable_lookup(as->pages, faultaddress);
   if (faulttype < 2)
   {
     if (newentry == NULL)
     {
       // no page exists
+      
+      if(as->stack_base > faultaddress && as->heap_end < faultaddress)
+        as->stack_base = (faultaddress & PAGE_SIZE);
+
       pagetable_pull(as->pages, faultaddress, 0);
       spinlock_acquire(&newentry->lock);
       spinlock_acquire(&tlb_lock);
@@ -167,6 +178,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
       spinlock_release(&newentry->lock);
       return 0;
     } 
+
     spinlock_acquire(&newentry->lock);
     if(!(newentry->flags & PAGETABLE_INMEM))
     {
@@ -186,9 +198,15 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     spinlock_release(&newentry->lock); 
     return 0;
   }
+
   else
   {
     //Exception READ-ONLY
+    
+    // Require that the MODIFY address is within legally allocated space
+    if(as->stack_base > faultaddress &&  as->heap_end < faultaddress)
+      return 1;
+
     bool map = coremap_lock_acquire(newentry->addr << 12);
     if(!map) 
       // the memory will become invalid shortly 
@@ -196,8 +214,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
       return 0;    
     if(!(newentry->flags & PAGETABLE_WRITEABLE) && !as->loading)
     { // invalid access 
+      coremap_lock_release(newentry->addr << 12);
       return 1;
     }
+
     newentry->flags |= PAGETABLE_DIRTY;
 
     coremap_mark_page_dirty(newentry->addr << 12);
@@ -206,6 +226,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
     uint32_t tlb_hi = faultaddress & TLBHI_VPAGE;
     uint32_t tlb_lo = (newentry->addr << 12) | (TLBLO_VALID | TLBLO_DIRTY);
     int tlb_idx = tlb_probe(tlb_hi, 0);
+
     if(tlb_idx < 0) // entry has been invalidated
       tlb_random(tlb_hi, tlb_lo);
     else 

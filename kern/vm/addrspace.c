@@ -31,8 +31,8 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <current.h>
-#include <mips/tlb.h>
-#include <mips/vm.h>
+#include <machine/tlb.h>
+#include <machine/vm.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
@@ -64,6 +64,10 @@ as_create(int pid)
 	as->destroy_lock = lock_create("ADDRESS SPACE DESTROY");
 	as->destroy_cv = cv_create("ADDRESS SPACE DESTROY");
 
+	as->heap_end = 0;
+	as->heap_start = 0;
+	as->stack_base = (vaddr_t) -1;
+
 	return as;
 }
 
@@ -90,6 +94,10 @@ as_copy(struct addrspace *old, struct addrspace **ret, int newpid)
 		as_destroy(newas);
 		return ENOMEM;
 	}
+
+	newas->heap_start = old->heap_start;
+	newas->heap_end = old->heap_end;
+	newas->stack_base = old->stack_base;
 
 	*ret = newas;
 	return 0;
@@ -196,6 +204,16 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
     }
     resident->flags = resident->flags % 16 + flags;
   }
+
+  if(writeable == 0)
+  {
+    as->heap_start = (page + memsize);
+    if(as->heap_start & 4096)
+    {
+      as->heap_start = (as->heap_start + 4096) & 4096;
+    }
+    as->heap_end = as->heap_start;
+  }
 	return 0;
 }
 
@@ -231,9 +249,10 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	 */
 
 	/* Initial user-level stack pointer */
-	*stackptr = USERSTACK;
+	as->stack_base = USERSTACK - 4096 * 3;
+	*stackptr = USERSTACK - 1;
 
 	/* Initialize three pages for the stack */
-	return as_define_region(as, (*stackptr) - 4096 * 3, 4096*3, 1, 1, 0);
+	return as_define_region(as, as->stack_base, 4096*3, 1, 1, 0);
 }
 

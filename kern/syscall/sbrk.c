@@ -27,7 +27,7 @@ int sys_sbrk(intptr_t amount, int *error) {
 			return -1;
 		}
 	} else { //amount > 0
-		if(true) { //TODO see what conditions make for an acceptable positive amount
+		if(as->heap_end + amount < as->stack_base) { 
 			prev = as->heap_end;
 			as->heap_end += amount;
 			return prev;
